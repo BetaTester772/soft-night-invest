@@ -6,13 +6,13 @@ from datetime import datetime
 from fractions import Fraction
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..params import INITIAL_CASH, KST
 from ..services.common import DomainError
 from .accounts import assert_open, get_account, model_assets, stock_value, valuation
-from .domain import FUNDS, INSTRUMENTS, SECTORS, tick_seconds
+from .domain import FUNDS, INSTRUMENTS, SECTORS, fund_value, tick_seconds
 from .models import (
     BoothAccount,
     BoothEvent,
@@ -134,39 +134,51 @@ def account_view(
     )
 
 
-def live_ranking(s: Session, row: BoothRound) -> list[dict[str, Any]]:
-    assets = model_assets(s, row)
-    records = list(
-        s.execute(
-            select(BoothAccount, BoothParticipant.nickname)
-            .join(BoothParticipant, BoothParticipant.id == BoothAccount.participant_id)
-            .where(BoothAccount.round_id == row.number, BoothAccount.disqualified.is_(False))
+def live_ranking(
+    s: Session, row: BoothRound, assets: dict[str, int] | None = None
+) -> list[dict[str, Any]]:
+    if assets is None:
+        assets = model_assets(s, row)
+    # Project only ranking fields, avoiding a full ORM account per participant.
+    records = s.execute(
+        select(
+            BoothAccount.id,
+            BoothAccount.cash,
+            BoothAccount.stocks,
+            BoothAccount.funds,
+            BoothAccount.first_trade_at,
+            BoothAccount.participant_id,
+            BoothParticipant.nickname,
         )
+        .join(BoothParticipant, BoothParticipant.id == BoothAccount.participant_id)
+        .where(BoothAccount.round_id == row.number, BoothAccount.disqualified.is_(False))
     )
-    records.sort(
-        key=lambda record: (
-            -valuation(record[0], row.prices, assets),
-            record[0].first_trade_at.timestamp() if record[0].first_trade_at else float("inf"),
-            record[0].id,
+    valued: list[tuple[int | Fraction, datetime | None, int, int, str]] = []
+    for account_id, cash, stocks, holdings, first_trade, participant_id, nickname in records:
+        assert participant_id is not None
+        # Preserve exact fractional fund values, but keep stock-only balances integers.
+        value: int | Fraction = cash + sum(
+            int(h["quantity"]) * row.prices[c] for c, h in stocks.items()
         )
-    )
+        value += sum(fund_value(int(h["units"]), assets[c]) for c, h in holdings.items())
+        valued.append((value, first_trade, account_id, participant_id, nickname))
+    valued.sort(key=lambda r: (-r[0], r[1].timestamp() if r[1] else float("inf"), r[2]))
     entries = []
     award_rank = 0
-    for index, (account, nickname) in enumerate(records, 1):
-        value = valuation(account, row.prices, assets)
-        eligible = account.first_trade_at is not None
+    for index, (value, first_trade, _, participant_id, nickname) in enumerate(valued, 1):
+        eligible = first_trade is not None
         if eligible:
             award_rank += 1
         entries.append(
             {
                 "rank": index,
                 "award_rank": award_rank if eligible else None,
-                "participant_id": account.participant_id,
+                "participant_id": participant_id,
                 "nickname": nickname,
                 "total_assets": int(value),
                 "return_rate": float((value - INITIAL_CASH) / INITIAL_CASH),
                 "eligible": eligible,
-                "first_trade_at": iso(account.first_trade_at),
+                "first_trade_at": iso(first_trade),
             }
         )
     return entries
@@ -269,7 +281,22 @@ def snapshot(
                 "history": history or [{"x": iso(row.opens_at), "y": 1000}],
             }
         )
-    result = latest_result(s, row.number)
+    revisions = (
+        select(BoothResult.round_id, func.max(BoothResult.revision).label("revision"))
+        .group_by(BoothResult.round_id)
+        .subquery()
+    )
+    latest = {
+        found.round_id: found
+        for found in s.scalars(
+            select(BoothResult).join(
+                revisions,
+                (BoothResult.round_id == revisions.c.round_id)
+                & (BoothResult.revision == revisions.c.revision),
+            )
+        )
+    }
+    result = latest.get(row.number)
     events = s.scalars(
         select(BoothEvent)
         .where(BoothEvent.round_id == row.number)
@@ -294,8 +321,8 @@ def snapshot(
             }
             for e in events
         ],
-        "ranking": result.entries if result else live_ranking(s, row),
+        "ranking": result.entries if result else live_ranking(s, row, assets),
         "result": result_view(result),
-        "results": [result_view(found) for r in rows if (found := latest_result(s, r.number))],
+        "results": [result_view(found) for r in rows if (found := latest.get(r.number))],
         "me": account_view(s, row, person, assets) if person else None,
     }

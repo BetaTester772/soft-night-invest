@@ -47,6 +47,19 @@ docker compose up --build
 - API: http://localhost:8080/api (백엔드 직접 접근은 http://localhost:8000, 문서는 `/docs`)
 - 백엔드 컨테이너는 시작할 때 `alembic upgrade head`를 실행하고, `STUDY_INVEST_SCHEDULER=1`이면 booth 모드에서 장 개장·30초 가격 갱신·마감을 자동 운영한다. study 모드에서는 기존 09:00 공시·18:00 정산을 실행한다.
 
+### 도메인과 HTTPS
+
+서버의 80·443 포트를 열고, DNS A 레코드를 서버 IP로 연결한 뒤 실행한다.
+`.env`의 `SITE_DOMAIN`은 기본 `softnight.intelligentsw.com`이며,
+`STUDY_INVEST_PUBLIC_URL`과 `VITE_SITE_URL`도 같은 HTTPS 주소로 설정한다.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --build --wait
+```
+
+전용 Caddy가 프론트엔드로 연결하고 TLS 인증서를 자동 발급·갱신한다.
+인증서는 이 프로젝트의 `caddy_data` 볼륨에 보관한다.
+
 ## CI · 의존성 업데이트
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml)이 PR과 `main` 푸시마다 바뀐 영역만 검사한다.

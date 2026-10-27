@@ -1,0 +1,22 @@
+# docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --build --wait
+services:
+  caddy:
+    image: caddy:2.11-alpine
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:-softnight.intelligentsw.com}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      frontend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
