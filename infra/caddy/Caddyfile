@@ -1,0 +1,14 @@
+{
+	admin off
+}
+
+{$SITE_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy frontend:80 {
+		lb_try_duration 15s
+		lb_try_interval 250ms
+	}
+	log {
+		output stdout
+	}
+}
