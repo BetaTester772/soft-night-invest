@@ -2,7 +2,7 @@
 import { defineConfig, loadEnv, type HtmlTagDescriptor, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 
-const imagePath = '/images/study-invest-preview.jpg';
+const imagePath = '/images/dinosaur-exchange-preview.png';
 
 /** Social crawlers read the initial HTML without running React. */
 function socialPreview(siteUrl?: string): Plugin {

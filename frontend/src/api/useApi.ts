@@ -54,6 +54,7 @@ export function useApi<T>(
   const [entry, setEntry] = useState<Entry<T> | undefined>(undefined);
   const [fetching, setFetching] = useState(enabled);
   const requestId = useRef(0);
+  const inFlight = useRef<{ id: number; deps: DependencyList } | null>(null);
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
   const depsRef = useRef(deps);
@@ -62,6 +63,7 @@ export function useApi<T>(
   const run = useCallback(async (): Promise<T | undefined> => {
     const id = ++requestId.current;
     const requestDeps = depsRef.current;
+    inFlight.current = { id, deps: requestDeps };
     setFetching(true);
     try {
       const result = await fetcherRef.current();
@@ -78,6 +80,7 @@ export function useApi<T>(
       }
       return undefined;
     } finally {
+      if (inFlight.current?.id === id) inFlight.current = null;
       if (id === requestId.current) setFetching(false);
     }
   }, []);
@@ -85,6 +88,7 @@ export function useApi<T>(
   useEffect(() => {
     if (!enabled) {
       requestId.current += 1; // 진행 중인 응답 무시
+      inFlight.current = null;
       setEntry(undefined);
       setFetching(false);
       return;
@@ -95,12 +99,18 @@ export function useApi<T>(
 
   useEffect(() => {
     if (!enabled || !refreshInterval) return;
+    // A slow successful poll must finish before another periodic request supersedes it.
+    // Manual refetches and dependency changes still start a new request immediately.
+    const poll = () => {
+      if (inFlight.current && sameDeps(inFlight.current.deps, depsRef.current)) return;
+      void run();
+    };
     const timer = window.setInterval(() => {
-      if (document.visibilityState !== 'hidden') void run();
+      if (document.visibilityState !== 'hidden') poll();
     }, refreshInterval);
     // 휴대폰에서 앱을 다시 열었을 때 최대 한 주기 동안 낡은 화면이 보이지 않게
     const onVisible = () => {
-      if (document.visibilityState === 'visible') void run();
+      if (document.visibilityState === 'visible') poll();
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => {

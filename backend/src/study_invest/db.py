@@ -138,6 +138,7 @@ def make_session_factory(engine: Engine) -> sessionmaker[Session]:
 
 def create_schema(engine: Engine) -> None:
     from . import models  # noqa: F401  모델 등록
+    from .booth import models as booth_models  # noqa: F401
 
     Base.metadata.create_all(engine)
 

@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, time
 from pathlib import Path
 from typing import Literal, cast
+from urllib.parse import urlsplit
 
 from .clock import ScaledClock, system_now
 from .event_calendar import EventCalendar
@@ -92,6 +93,10 @@ class Settings:
     max_upload_bytes: int = 10 * 1024 * 1024
     max_json_bytes: int = 1024 * 1024
     """업로드 외 요청 본문 한도."""
+    event_mode: Literal["study", "booth"] = "study"
+    booth_date: date = date(2026, 10, 30)
+    booth_public_url: str = ""
+    booth_clock_start: time = time(15, 59, 50)
     scheduler_enabled: bool = False
     """켜면 앱 프로세스 안에서 09:00·18:00 배치를 자동 실행한다."""
     scheduler_interval_seconds: float = 30.0
@@ -147,11 +152,35 @@ class Settings:
     log_format: Literal["text", "json"] = "text"
     """로그 형식. json이면 한 줄에 JSON 하나(로그 수집기용)."""
 
+    def __post_init__(self) -> None:
+        if self.event_mode not in {"study", "booth"}:
+            raise ValueError("STUDY_INVEST_EVENT_MODE은 study 또는 booth여야 합니다.")
+        if self.booth_public_url:
+            url = urlsplit(self.booth_public_url)
+            if (
+                url.scheme not in {"https", "http"}
+                or not url.hostname
+                or url.username
+                or url.password
+                or url.path not in {"", "/"}
+                or url.query
+                or url.fragment
+            ):
+                raise ValueError(
+                    "STUDY_INVEST_PUBLIC_URL에는 경로 없는 공개 http(s) 주소를 설정하세요."
+                )
+
     @classmethod
     def from_env(cls) -> Settings:
         env = os.environ
         dist = env.get("STUDY_INVEST_FRONTEND_DIST")
         return cls(
+            event_mode=cast(Literal["study", "booth"], env.get("STUDY_INVEST_EVENT_MODE", "booth")),
+            booth_date=_env_date(env, "STUDY_INVEST_BOOTH_DATE", cls.booth_date),
+            booth_public_url=env.get("STUDY_INVEST_PUBLIC_URL", "").strip().rstrip("/"),
+            booth_clock_start=time.fromisoformat(
+                env.get("STUDY_INVEST_BOOTH_CLOCK_START") or "15:59:50"
+            ),
             database_url=env.get("STUDY_INVEST_DATABASE_URL", cls.database_url),
             batch_database_url=env.get("STUDY_INVEST_BATCH_DATABASE_URL") or None,
             migration_database_url=env.get("STUDY_INVEST_MIGRATION_DATABASE_URL") or None,
@@ -214,7 +243,11 @@ class Settings:
             return system_now
         return ScaledClock(
             origin=self.time_origin,
-            virtual_origin=datetime.combine(self.event_start, time(0), KST),
+            virtual_origin=datetime.combine(
+                self.booth_date if self.event_mode == "booth" else self.event_start,
+                self.booth_clock_start if self.event_mode == "booth" else time(0),
+                KST,
+            ),
             scale=self.time_scale,
         )
 

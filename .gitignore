@@ -29,3 +29,6 @@ backend/uploads/
 # Node
 node_modules/
 frontend/dist/
+
+# Local design previews
+.superpowers/
