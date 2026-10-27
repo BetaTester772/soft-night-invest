@@ -1,3 +1,4 @@
+import { t, useLanguage, useDocumentLanguage } from "../i18n";
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { onUnauthorized } from "../api/client";
@@ -11,6 +12,8 @@ import {
   ToastProvider,
 } from "../components/ui";
 import { boothApi } from "./api";
+import { localizeBoothState } from "./localize";
+import { LanguageSelector } from "../i18n/LanguageSelector";
 import { AdminView } from "./AdminView";
 import { BroadcastView } from "./BroadcastView";
 import { FundsView } from "./FundsView";
@@ -31,6 +34,7 @@ function Countdown({
   now: string;
   scale?: number;
 }) {
+  useLanguage();
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     const started = Date.now();
@@ -57,6 +61,7 @@ function Countdown({
   );
 }
 function BoothShell({ config }: { config: BoothConfig }) {
+  useLanguage();
   const location = useLocation();
   const broadcast = location.pathname === "/broadcast";
   const admin = location.pathname === "/admin";
@@ -77,7 +82,7 @@ function BoothShell({ config }: { config: BoothConfig }) {
       refreshInterval: 2000,
     },
   );
-  const data = state.data;
+  const data = state.data ? localizeBoothState(state.data) : undefined;
   const currentRound = useRef(data?.round.id);
   currentRound.current = data?.round.id;
   function activateSession(next: string | null, persist = true) {
@@ -222,17 +227,17 @@ function BoothShell({ config }: { config: BoothConfig }) {
               </svg>
             </span>
             <span>
-              <strong>난 운석이 떨어진 줄 알았지</strong>
-              <small>소프트의 밤 · 공룡 귀신의 거래소</small>
+              <strong>{t("난 운석이 떨어진 줄 알았지")}</strong>
+              <small>{t("소프트의 밤 · 공룡 귀신의 거래소")}</small>
             </span>
           </Link>
           {!broadcast && (
-            <nav className={styles.nav} aria-label="주 메뉴">
+            <nav className={styles.nav} aria-label={t("주 메뉴")}>
               {[
-                ["/", "거래소"],
-                ["/funds", "에이전트 펀드"],
-                ["/portfolio", "내 자산"],
-                ["/ranking", "랭킹"],
+                ["/", t("거래소")],
+                ["/funds", t("에이전트 펀드")],
+                ["/portfolio", t("내 자산")],
+                ["/ranking", t("랭킹")],
               ].map(([to, label]) => (
                 <NavLink
                   key={to}
@@ -246,19 +251,18 @@ function BoothShell({ config }: { config: BoothConfig }) {
             </nav>
           )}
           <div className={styles.headerActions}>
+            <LanguageSelector />
             <Link
               className={styles.outline}
               to={broadcast ? "/" : "/broadcast"}
             >
-              {broadcast ? "참가 화면" : "↗ 부스 화면"}
+              {broadcast ? t("참가 화면") : t("↗ 부스 화면")}
             </Link>
             {!broadcast &&
               (data?.me ? (
                 <>
-                  <span>{data.me.nickname} 님</span>
-                  <button className={styles.logout} onClick={logout}>
-                    나가기
-                  </button>
+                  <span>{data.me.nickname}{" "}{t("님")}</span>
+                  <button className={styles.logout} onClick={logout}>{t("나가기")}</button>
                 </>
               ) : (
                 <Button
@@ -266,7 +270,7 @@ function BoothShell({ config }: { config: BoothConfig }) {
                   className={styles.solid}
                   onClick={() => setJoinOpen(true)}
                 >
-                  참가하기
+                  {t("참가하기")}
                 </Button>
               ))}
           </div>
@@ -274,14 +278,12 @@ function BoothShell({ config }: { config: BoothConfig }) {
       </header>
       <main className={styles.wrap}>
         {config.qa_tools && (
-          <div className={styles.qaBanner}>
-            테스트 운영 모드 · 실제 행사 시각과 다를 수 있습니다.
-          </div>
+          <div className={styles.qaBanner}>{t("테스트 운영 모드 · 실제 행사 시각과 다를 수 있습니다.")}</div>
         )}
         {error && !joinOpen && (
           <div role="alert" className={styles.errorBanner}>
-            {error}
-            <button onClick={() => setError("")} aria-label="알림 닫기">
+            {t(error)}
+            <button onClick={() => setError("")} aria-label={t("알림 닫기")}>
               ×
             </button>
           </div>
@@ -290,21 +292,20 @@ function BoothShell({ config }: { config: BoothConfig }) {
           <AdminView config={config} />
         ) : state.error && !data ? (
           <div className={styles.empty}>
-            <h1>거래소에 연결하지 못했습니다.</h1>
-            <p>{state.error.message}</p>
-            <Button onClick={state.refetch}>다시 연결하기</Button>
+            <h1>{t("거래소에 연결하지 못했습니다.")}</h1>
+            <p>{t(state.error.message)}</p>
+            <Button onClick={state.refetch}>{t("다시 연결하기")}</Button>
           </div>
         ) : !data ? (
           <Skeleton lines={8} />
         ) : (
           <>
             {state.error && (
-              <div role="alert" className={styles.errorBanner}>
-                조회에 실패해 마지막 갱신 정보를 표시하고 있습니다. {state.error.message}
-                <Button onClick={state.refetch}>다시 연결하기</Button>
+              <div role="alert" className={styles.errorBanner}>{t("조회에 실패해 마지막 갱신 정보를 표시하고 있습니다.")}{" "}{t(state.error.message)}
+                <Button onClick={state.refetch}>{t("다시 연결하기")}</Button>
               </div>
             )}
-            <div className={styles.timeline} aria-label="장 일정">
+            <div className={styles.timeline} aria-label={t("장 일정")}>
               {data.rounds.map((r) => (
                 <button
                   key={r.id}
@@ -328,12 +329,12 @@ function BoothShell({ config }: { config: BoothConfig }) {
                   </span>
                   <span className={styles.eraStatus}>
                     {r.is_open
-                      ? "거래 중"
+                      ? t("거래 중")
                       : r.state === "closed"
-                        ? "종료"
+                        ? t("종료")
                         : r.state === "paused"
-                          ? "정지"
-                          : "개장 예정"}
+                          ? t("정지")
+                          : t("개장 예정")}
                   </span>
                 </button>
               ))}
@@ -341,26 +342,24 @@ function BoothShell({ config }: { config: BoothConfig }) {
             <div className={styles.sessionBar}>
               <span className={styles.pill}>
                 <i />
-                {data.round.id}장 · {data.round.era}
+                {t("{round}장 · {era}", { round: data.round.id, era: data.round.era })}
               </span>
               <div className={styles.connection}>
                 <span>
                   {state.fetching
-                    ? "갱신 중"
-                    : "마지막 갱신 " +
+                    ? t("갱신 중")
+                    : t("마지막 갱신 ") +
                       (data.round.published_at
                         ? time(data.round.published_at)
-                        : "개장 전")}
+                        : t("개장 전"))}
                 </span>
                 {selected !== undefined && (
-                  <button onClick={() => setSelected(undefined)}>
-                    현재 장으로
-                  </button>
+                  <button onClick={() => setSelected(undefined)}>{t("현재 장으로")}</button>
                 )}
               </div>
               {data.round.is_open && (
                 <div className={styles.clock}>
-                  <small>마감까지</small>
+                  <small>{t("마감까지")}</small>
                   <Countdown
                     end={data.round.closes_at}
                     now={data.now}
@@ -373,26 +372,24 @@ function BoothShell({ config }: { config: BoothConfig }) {
               <div className={styles.notice}>
                 {data.round.state === "paused"
                   ? (data.round.paused_reason ??
-                    "시세 갱신을 기다리고 있습니다.")
+                    t("시세 갱신을 기다리고 있습니다."))
                   : data.round.state === "pending"
-                    ? time(data.round.opens_at) + "에 거래소가 열립니다."
-                    : "거래가 종료되었습니다. 장별 랭킹에서 결과를 확인하세요."}
+                    ? time(data.round.opens_at) + t("에 거래소가 열립니다.")
+                    : t("거래가 종료되었습니다. 장별 랭킹에서 결과를 확인하세요.")}
               </div>
             )}
             {data.me && !data.me.enrolled && data.round.state !== "closed" && (
               <div className={styles.enrollBanner}>
-                <span>이번 장은 가상 시드 100만원으로 새로 시작합니다.</span>
-                <Button onClick={enroll}>이 장에 참가하기</Button>
+                <span>{t("이번 장은 가상 시드 100만원으로 새로 시작합니다.")}</span>
+                <Button onClick={enroll}>{t("이 장에 참가하기")}</Button>
               </div>
             )}
             {data.me?.disqualified && (
-              <div role="alert" className={styles.errorBanner}>
-                이 장에서 실격 처리되었습니다. {data.me.reason}
+              <div role="alert" className={styles.errorBanner}>{t("이 장에서 실격 처리되었습니다.")}{" "}{data.me.reason}
               </div>
             )}
             {data.me?.enrolled && !broadcast && (
-              <div className={styles.mobileCash}>
-                내 주문 가능 현금 <strong>{won(data.me.cash)}</strong>
+              <div className={styles.mobileCash}>{t("내 주문 가능 현금")}{" "}<strong>{won(data.me.cash)}</strong>
               </div>
             )}
             <Routes>
@@ -401,24 +398,20 @@ function BoothShell({ config }: { config: BoothConfig }) {
                 element={
                   <>
                     <div className={styles.intro}>
-                      <h1>
-                        공룡은 떠났고,
-                        <br />
-                        주식은 남았다.
-                      </h1>
+                      <h1>{t("공룡은 떠났고,")}{" "}<br />{t("주식은 남았다.")}</h1>
                       <p>
                         {
                           [
-                            "판게아 거래소 개장. 낮은 변동성에서 첫 투자를 시작하세요.",
-                            "초식공룡이 번성하자 사료주가 들썩입니다. 오늘의 기회를 찾아보세요.",
-                            "운석이 다가옵니다. 마지막 장에서 살아남으세요.",
+                            t("판게아 거래소 개장. 낮은 변동성에서 첫 투자를 시작하세요."),
+                            t("초식공룡이 번성하자 사료주가 들썩입니다. 오늘의 기회를 찾아보세요."),
+                            t("운석이 다가옵니다. 마지막 장에서 살아남으세요."),
                           ][data.round.id - 1]
                         }
                       </p>
                     </div>
                     {lastEvent && (
                       <div className={styles.eventBanner}>
-                        <strong>공룡 귀신 속보</strong>
+                        <strong>{t("공룡 귀신 속보")}</strong>
                         <span>{lastEvent.headline}</span>
                         <small>{time(lastEvent.created_at)}</small>
                       </div>
@@ -451,8 +444,8 @@ function BoothShell({ config }: { config: BoothConfig }) {
                 path="*"
                 element={
                   <div className={styles.empty}>
-                    <h1>길을 잃은 공룡인가요?</h1>
-                    <Link to="/">거래소로 돌아가기</Link>
+                    <h1>{t("길을 잃은 공룡인가요?")}</h1>
+                    <Link to="/">{t("거래소로 돌아가기")}</Link>
                   </div>
                 }
               />
@@ -475,10 +468,8 @@ function BoothShell({ config }: { config: BoothConfig }) {
         )}
         <footer className={styles.footer}>
           <span>
-            {config.event_day.replaceAll("-", ".")} 소프트의 밤 · 가상 투자 게임
-            · 실제 금전 거래 없음
-          </span>
-          <Link to="/admin">운영자</Link>
+            {config.event_day.replaceAll("-", ".")}{" "}{t("소프트의 밤 · 가상 투자 게임 · 실제 금전 거래 없음")}</span>
+          <Link to="/admin">{t("운영자")}</Link>
         </footer>
       </main>
       <Modal
@@ -486,25 +477,22 @@ function BoothShell({ config }: { config: BoothConfig }) {
         onClose={() => {
           if (!joinBusy) setJoinOpen(false);
         }}
-        title="거래소 참가"
-        description="닉네임으로 입장하고 가상 시드 100만원을 받아보세요."
+        title={t("거래소 참가")}
+        description={t("닉네임으로 입장하고 가상 시드 100만원을 받아보세요.")}
       >
         <form onSubmit={join} className={styles.form}>
           <TextField
-            label="닉네임"
+            label={t("닉네임")}
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
             maxLength={32}
             required
             disabled={joinBusy}
           />
-          <p className={styles.muted}>
-            같은 브라우저로 돌아오면 계좌가 이어집니다. 기기를 바꾸면 운영자에게
-            계좌 복구를 요청하세요.
-          </p>
+          <p className={styles.muted}>{t("같은 브라우저로 돌아오면 계좌가 이어집니다. 기기를 바꾸면 운영자에게 계좌 복구를 요청하세요.")}</p>
           {error && (
             <p role="alert" className={styles.error}>
-              {error}
+              {t(error)}
             </p>
           )}
           <Button
@@ -513,13 +501,13 @@ function BoothShell({ config }: { config: BoothConfig }) {
             loading={joinBusy}
             className={styles.solid}
           >
-            거래소 입장하기
+            {t("거래소 입장하기")}
           </Button>
         </form>
         <details className={styles.recovery}>
-          <summary>운영자에게 복구 토큰을 받았나요?</summary>
+          <summary>{t("운영자에게 복구 토큰을 받았나요?")}</summary>
           <TextField
-            label="복구 토큰"
+            label={t("복구 토큰")}
             value={recovery}
             onChange={(e) => setRecovery(e.target.value)}
             type="password"
@@ -531,7 +519,7 @@ function BoothShell({ config }: { config: BoothConfig }) {
               if (!joinBusy) activateSession(recovery.trim());
             }}
           >
-            계좌 복구하기
+            {t("계좌 복구하기")}
           </Button>
         </details>
       </Modal>
@@ -539,6 +527,7 @@ function BoothShell({ config }: { config: BoothConfig }) {
   );
 }
 export function BoothApp({ config }: { config: BoothConfig }) {
+  useDocumentLanguage();
   return (
     <ToastProvider>
       <BoothShell config={config} />

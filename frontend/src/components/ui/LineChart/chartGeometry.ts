@@ -1,5 +1,6 @@
 import { useEffect, useState, type RefObject } from 'react';
 import { formatNumber } from '../../../lib/format';
+import { getLanguage } from '../../../i18n/locale';
 
 /** Shared plot padding so a price chart and the indicator panels under it line up on the same x. */
 export const CHART_PAD = { top: 16, right: 16, bottom: 28, left: 64 };
@@ -26,6 +27,7 @@ export function niceTicks(min: number, max: number, count = 4): number[] {
 
 /** Axis label for won amounts: 75,000 → `7.5만`. */
 export function compactWon(y: number): string {
+  if (getLanguage() === 'en') return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(y);
   if (Math.abs(y) >= 10000) {
     const man = y / 10000;
     return `${formatNumber(man, Number.isInteger(man) ? 0 : 1)}만`;

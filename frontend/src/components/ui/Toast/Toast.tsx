@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { cx } from '../../../lib/cx';
 import { Icon } from '../Icon/Icon';
 import styles from './Toast.module.css';
+import { t, useLanguage } from '../../../i18n';
 
 export type ToastTone = 'info' | 'success' | 'warning' | 'danger' | 'up' | 'down';
 
@@ -29,6 +30,7 @@ export interface ToastApi {
 const ToastContext = createContext<ToastApi | null>(null);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
+  useLanguage();
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const nextId = useRef(1);
 
@@ -55,7 +57,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={api}>
       {children}
       {createPortal(
-        <div className={styles.region} aria-live="polite" aria-relevant="additions" role="region" aria-label="알림">
+        <div className={styles.region} aria-live="polite" aria-relevant="additions" role="region" aria-label={t('알림')}>
           {toasts.map((t) => (
             <ToastView key={t.id} toast={t} onDismiss={dismiss} />
           ))}
@@ -67,6 +69,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 function ToastView({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: number) => void }) {
+  useLanguage();
   useEffect(() => {
     if (!toast.duration) return;
     const timer = window.setTimeout(() => onDismiss(toast.id), toast.duration);
@@ -80,7 +83,7 @@ function ToastView({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: num
         <p className={styles.title}>{toast.title}</p>
         {toast.description && <p className={styles.description}>{toast.description}</p>}
       </div>
-      <button type="button" className={styles.close} onClick={() => onDismiss(toast.id)} aria-label="알림 닫기">
+      <button type="button" className={styles.close} onClick={() => onDismiss(toast.id)} aria-label={t('알림 닫기')}>
         <Icon name="close" size={16} />
       </button>
     </div>

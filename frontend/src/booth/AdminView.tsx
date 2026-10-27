@@ -1,3 +1,4 @@
+import { t, useLanguage } from "../i18n";
 import { useEffect, useState } from "react";
 import { onUnauthorized } from "../api/client";
 import { adminKeyStore } from "../api/storage";
@@ -10,6 +11,7 @@ import type { BoothConfig } from "./types";
 import styles from "./Booth.module.css";
 
 export function AdminView({ config }: { config: BoothConfig }) {
+  useLanguage();
   const [authenticated, setAuthenticated] = useState(
     Boolean(adminKeyStore.get()),
   );
@@ -60,8 +62,8 @@ export function AdminView({ config }: { config: BoothConfig }) {
   if (!authenticated)
     return (
       <section className={styles.adminLogin}>
-        <h1>거래소 운영</h1>
-        <p className={styles.muted}>설정된 관리자 키로 접속하세요.</p>
+        <h1>{t("거래소 운영")}</h1>
+        <p className={styles.muted}>{t("설정된 관리자 키로 접속하세요.")}</p>
         <form
           className={styles.form}
           onSubmit={(e) => {
@@ -71,15 +73,15 @@ export function AdminView({ config }: { config: BoothConfig }) {
           }}
         >
           <TextField
-            label="관리자 키"
+            label={t("관리자 키")}
             type="password"
             value={key}
             onChange={(e) => setKey(e.target.value)}
             required
           />
-          <Button type="submit">운영 화면 열기</Button>
+          <Button type="submit">{t("운영 화면 열기")}</Button>
         </form>
-        {message && <p role="alert">{message}</p>}
+        {message && <p role="alert">{t(message)}</p>}
       </section>
     );
   const selected = status.data?.rounds.find((r) => r.id === roundId);
@@ -90,8 +92,8 @@ export function AdminView({ config }: { config: BoothConfig }) {
     <>
       <div className={styles.sectionTop}>
         <div>
-          <h1>거래소 운영</h1>
-          <p>장 운영과 사건, 시상 결과를 확인합니다.</p>
+          <h1>{t("거래소 운영")}</h1>
+          <p>{t("장 운영과 사건, 시상 결과를 확인합니다.")}</p>
         </div>
         <Button
           variant="ghost"
@@ -100,25 +102,23 @@ export function AdminView({ config }: { config: BoothConfig }) {
             setAuthenticated(false);
           }}
         >
-          관리자 나가기
+          {t("관리자 나가기")}
         </Button>
       </div>
       {message && (
         <p role="status" className={styles.notice}>
-          {message}
+          {t(message)}
         </p>
       )}
       {status.error && (
         <p role="alert" className={styles.error}>
-          {status.error.message}
+          {t(status.error.message)}
         </p>
       )}
       <div className={styles.adminGrid}>
         <section className={styles.panel + " " + styles.adminSection}>
-          <h2>장 운영</h2>
-          <label>
-            운영할 장
-            <select
+          <h2>{t("장 운영")}</h2>
+          <label>{t("운영할 장")}{" "}<select
               value={roundId}
               onChange={(e) => {
                 setRoundId(Number(e.target.value));
@@ -127,27 +127,25 @@ export function AdminView({ config }: { config: BoothConfig }) {
             >
               {status.data?.rounds.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {r.id}장 · {r.era}
+                  {t("{round}장 · {era}", { round: r.id, era: t(r.era) })}
                 </option>
               ))}
             </select>
           </label>
           <p>
-            {selected?.state ?? "불러오는 중"} ·{" "}
+            {selected?.state ?? t("불러오는 중")} ·{" "}
             {selected && time(selected.opens_at)}–
-            {selected && time(selected.closes_at)} · 가격 버전{" "}
+            {selected && time(selected.closes_at)}{" "}{t("· 가격 버전")}{" "}
             {selected?.version ?? 0}
           </p>
           <TextField
-            label="운영 사유"
+            label={t("운영 사유")}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             maxLength={300}
           />
           <div className={styles.actions}>
-            <Button disabled={busy} onClick={() => void action("run")}>
-              스케줄러 지금 확인
-            </Button>
+            <Button disabled={busy} onClick={() => void action("run")}>{t("스케줄러 지금 확인")}</Button>
             <Button
               disabled={busy || selected?.state !== "open" || !reason.trim()}
               onClick={() =>
@@ -158,7 +156,7 @@ export function AdminView({ config }: { config: BoothConfig }) {
                 })
               }
             >
-              거래 일시 정지
+              {t("거래 일시 정지")}
             </Button>
             <Button
               disabled={busy || selected?.state !== "paused" || !reason.trim()}
@@ -170,13 +168,10 @@ export function AdminView({ config }: { config: BoothConfig }) {
                 })
               }
             >
-              거래 재개
+              {t("거래 재개")}
             </Button>
           </div>
-          <p className={styles.muted}>
-            재개하면 지난 구간은 건너뛰고 마지막 공개 가격부터 이어갑니다. 마감
-            시각은 바뀌지 않습니다.
-          </p>
+          <p className={styles.muted}>{t("재개하면 지난 구간은 건너뛰고 마지막 공개 가격부터 이어갑니다. 마감 시각은 바뀌지 않습니다.")}</p>
           {config.qa_tools && (
             <div className={styles.actions}>
               <Button
@@ -187,18 +182,16 @@ export function AdminView({ config }: { config: BoothConfig }) {
                   })
                 }
               >
-                QA {selected?.update_interval_seconds ?? 30}초 진행
+                {t("QA {seconds}초 진행", { seconds: selected?.update_interval_seconds ?? 30 })}
               </Button>
-              <Button disabled={busy} onClick={() => void action("qa/next")}>
-                QA 다음 장 개장
-              </Button>
+              <Button disabled={busy} onClick={() => void action("qa/next")}>{t("QA 다음 장 개장")}</Button>
             </div>
           )}
         </section>
         <section className={styles.panel + " " + styles.adminSection}>
-          <h2>속보와 섹터 사건</h2>
+          <h2>{t("속보와 섹터 사건")}</h2>
           <TextField
-            label="속보 제목"
+            label={t("속보 제목")}
             value={headline}
             onChange={(e) => setHeadline(e.target.value)}
             maxLength={160}
@@ -210,19 +203,17 @@ export function AdminView({ config }: { config: BoothConfig }) {
                 void action("news", { round_id: roundId, headline, reason })
               }
             >
-              속보 예약
+              {t("속보 예약")}
             </Button>
           </div>
-          <label>
-            섹터
-            <select value={sector} onChange={(e) => setSector(e.target.value)}>
-              <option value="feed">사료·바이오</option>
-              <option value="build">건설·자원</option>
-              <option value="space">우주·방위</option>
+          <label>{t("섹터")}{" "}<select value={sector} onChange={(e) => setSector(e.target.value)}>
+              <option value="feed">{t("사료·바이오")}</option>
+              <option value="build">{t("건설·자원")}</option>
+              <option value="space">{t("우주·방위")}</option>
             </select>
           </label>
           <TextField
-            label="사건 변동률 (%)"
+            label={t("사건 변동률 (%)")}
             type="number"
             min={-50}
             max={50}
@@ -247,25 +238,21 @@ export function AdminView({ config }: { config: BoothConfig }) {
               })
             }
           >
-            섹터 사건 예약
+            {t("섹터 사건 예약")}
           </Button>
-          <p className={styles.muted}>
-            다음 가격 구간에 속보와 가격 효과를 함께 공개합니다.
-          </p>
+          <p className={styles.muted}>{t("다음 가격 구간에 속보와 가격 효과를 함께 공개합니다.")}</p>
         </section>
         <section className={styles.panel + " " + styles.adminSection}>
-          <h2>참가자 관리</h2>
-          <label>
-            참가자
-            <select
+          <h2>{t("참가자 관리")}</h2>
+          <label>{t("참가자")}{" "}<select
               value={participant}
               onChange={(e) => setParticipant(e.target.value)}
             >
-              <option value="">참가자를 선택하세요</option>
+              <option value="">{t("참가자를 선택하세요")}</option>
               {people.map((p) => (
                 <option key={p.participant_id} value={p.participant_id}>
                   {p.nickname}
-                  {p.disqualified ? " (실격)" : ""}
+                  {p.disqualified ? t(" (실격)") : ""}
                 </option>
               ))}
             </select>
@@ -282,7 +269,7 @@ export function AdminView({ config }: { config: BoothConfig }) {
                 })
               }
             >
-              이 장에서 실격 처리
+              {t("이 장에서 실격 처리")}
             </Button>
             <Button
               disabled={busy || !participant || !reason.trim()}
@@ -293,38 +280,30 @@ export function AdminView({ config }: { config: BoothConfig }) {
                 })
               }
             >
-              현장 확인 후 계좌 복구
+              {t("현장 확인 후 계좌 복구")}
             </Button>
           </div>
           {recovered && (
-            <label>
-              새 복구 토큰
-              <textarea value={recovered} readOnly rows={3} />
-              <small>
-                이 토큰을 본인에게 전달하세요. 이전 기기의 토큰은
-                폐기되었습니다.
-              </small>
+            <label>{t("새 복구 토큰")}{" "}<textarea value={recovered} readOnly rows={3} />
+              <small>{t("이 토큰을 본인에게 전달하세요. 이전 기기의 토큰은 폐기되었습니다.")}</small>
             </label>
           )}
-          <p className={styles.muted}>
-            닉네임과 현장 참가자를 확인한 뒤 처리하세요. 모든 변경은 사유와 함께
-            기록합니다.
-          </p>
+          <p className={styles.muted}>{t("닉네임과 현장 참가자를 확인한 뒤 처리하세요. 모든 변경은 사유와 함께 기록합니다.")}</p>
         </section>
         <section className={styles.panel + " " + styles.adminSection}>
-          <h2>시상 결과 확정</h2>
+          <h2>{t("시상 결과 확정")}</h2>
           {result ? (
             <>
               <p>
-                {roundId}장 결과 버전 {result.revision} ·{" "}
-                {result.confirmed ? "확정" : "확인 대기"}
+                {t("{round}장 결과 버전 {revision}", { round: roundId, revision: result.revision })} ·{" "}
+                {result.confirmed ? t("확정") : t("확인 대기")}
               </p>
               {result.entries
                 .filter((e) => e.eligible)
                 .slice(0, 3)
                 .map((e) => (
                   <p key={e.participant_id}>
-                    {e.award_rank}위　{e.nickname}　
+                    {t("{rank}위", { rank: e.award_rank ?? e.rank })}{" "}{e.nickname}　
                     {(e.return_rate * 100).toFixed(2)}%
                   </p>
                 ))}
@@ -337,15 +316,13 @@ export function AdminView({ config }: { config: BoothConfig }) {
                   })
                 }
               >
-                이 결과로 시상 확정
+                {t("이 결과로 시상 확정")}
               </Button>
             </>
           ) : (
-            <p className={styles.muted}>장 마감 후 정산 결과가 생성됩니다.</p>
+            <p className={styles.muted}>{t("장 마감 후 정산 결과가 생성됩니다.")}</p>
           )}
-          <p className={styles.muted}>
-            마감 후 실격 처리를 하면 새로운 결과 버전을 다시 확정해야 합니다.
-          </p>
+          <p className={styles.muted}>{t("마감 후 실격 처리를 하면 새로운 결과 버전을 다시 확정해야 합니다.")}</p>
         </section>
       </div>
       <div style={{ marginTop: 24 }}>

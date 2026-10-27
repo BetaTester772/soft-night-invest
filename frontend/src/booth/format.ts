@@ -1,11 +1,14 @@
 import { formatNumber } from "../lib/format";
+import { getLanguage, getLocale } from '../i18n/locale';
 
-export const won = (n: number) => formatNumber(Math.floor(n)) + "원";
+export const won = (n: number) => getLanguage() === 'ko'
+  ? formatNumber(Math.floor(n)) + '원'
+  : 'KRW ' + new Intl.NumberFormat(getLocale(), { maximumFractionDigits: 0 }).format(Math.floor(n));
 export const pct = (n: number) =>
   (n > 0 ? "+" : "") + (n * 100).toFixed(2) + "%";
 export const tone = (n: number) => (n > 0 ? "up" : n < 0 ? "down" : "flat");
 export const time = (s: string) =>
-  new Intl.DateTimeFormat("ko-KR", {
+  new Intl.DateTimeFormat(getLocale(), {
     timeZone: "Asia/Seoul",
     hour: "2-digit",
     minute: "2-digit",

@@ -1,0 +1,26 @@
+.selector {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 3px;
+  border: 1px solid #53634d;
+  border-radius: 7px;
+  gap: 2px;
+}
+.selector button {
+  border: 0;
+  border-radius: 4px;
+  padding: 6px 8px;
+  background: transparent;
+  color: #becabc;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.selector button[aria-pressed='true'] {
+  background: #c8e59c;
+  color: #101813;
+}
+.selector button:focus-visible {
+  outline: 3px solid #ffb36b;
+  outline-offset: 3px;
+}
