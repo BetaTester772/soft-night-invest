@@ -61,6 +61,8 @@ function BoothShell({ config }: { config: BoothConfig }) {
   const broadcast = location.pathname === "/broadcast";
   const admin = location.pathname === "/admin";
   const [token, setToken] = useState(() => boothTokenStore.get());
+  const sessionGeneration = useRef(0);
+  const tokenRef = useRef(token);
   const [selected, setSelected] = useState<number>();
   const [joinOpen, setJoinOpen] = useState(false);
   const [nickname, setNickname] = useState("");
@@ -68,12 +70,47 @@ function BoothShell({ config }: { config: BoothConfig }) {
   const [joinBusy, setJoinBusy] = useState(false);
   const [error, setError] = useState("");
   const [target, setTarget] = useState<TradeTarget | null>(null);
-  const state = useApi(() => boothApi.state(selected), [selected, token], {
-    refreshInterval: 2000,
-  });
+  const state = useApi(
+    () => boothApi.state(selected, token),
+    [selected, token],
+    {
+      refreshInterval: 2000,
+    },
+  );
   const data = state.data;
   const currentRound = useRef(data?.round.id);
   currentRound.current = data?.round.id;
+  function activateSession(next: string | null) {
+    sessionGeneration.current += 1;
+    tokenRef.current = next;
+    boothTokenStore.set(next);
+    setToken(next);
+    setTarget(null);
+    setJoinOpen(false);
+    setJoinBusy(false);
+    setError("");
+  }
+  function syncSession() {
+    const latest = boothTokenStore.get();
+    if (latest !== tokenRef.current) activateSession(latest);
+  }
+  function isCurrent(generation: number, expected: string | null) {
+    return (
+      generation === sessionGeneration.current &&
+      expected === tokenRef.current &&
+      expected === boothTokenStore.get()
+    );
+  }
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.storageArea && event.storageArea !== window.localStorage)
+        return;
+      if (event.key === "dino.booth.token" || event.key === null)
+        activateSession(event.key === null ? null : event.newValue);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
   useEffect(() => {
     const root = document.documentElement;
     const previous = root.dataset.event;
@@ -87,9 +124,7 @@ function BoothShell({ config }: { config: BoothConfig }) {
     () =>
       onUnauthorized((mode) => {
         if (mode === "booth") {
-          boothTokenStore.set(null);
-          setToken(null);
-          setTarget(null);
+          activateSession(null);
           setError("참가 정보를 다시 확인하세요.");
         }
       }),
@@ -101,30 +136,47 @@ function BoothShell({ config }: { config: BoothConfig }) {
   async function join(e: React.FormEvent) {
     e.preventDefault();
     if (joinBusy) return;
+    const generation = ++sessionGeneration.current;
+    const expected = tokenRef.current;
     setJoinBusy(true);
     setError("");
     try {
       const result = await boothApi.join(nickname);
-      boothTokenStore.set(result.token);
-      setToken(result.token);
-      setJoinOpen(false);
+      if (isCurrent(generation, expected)) activateSession(result.token);
+      else syncSession();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "참가하지 못했습니다.");
+      if (isCurrent(generation, expected))
+        setError(err instanceof Error ? err.message : "참가하지 못했습니다.");
+      else syncSession();
     } finally {
-      setJoinBusy(false);
+      if (generation === sessionGeneration.current) setJoinBusy(false);
     }
   }
   async function enroll() {
     if (!data) return;
     const id = data.round.id;
+    const expected = tokenRef.current;
+    const generation = sessionGeneration.current;
+    if (expected !== boothTokenStore.get()) {
+      syncSession();
+      return;
+    }
     try {
-      await boothApi.enroll(id);
-      if (currentRound.current === id) await state.refetch();
+      await boothApi.enroll(id, expected);
+      if (isCurrent(generation, expected) && currentRound.current === id)
+        await state.refetch();
+      else syncSession();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "참가하지 못했습니다.");
+      if (isCurrent(generation, expected))
+        setError(err instanceof Error ? err.message : "참가하지 못했습니다.");
+      else syncSession();
     }
   }
   function trade(next: TradeTarget) {
+    if (tokenRef.current !== boothTokenStore.get()) {
+      syncSession();
+      return;
+    }
     if (!data?.me) {
       setJoinOpen(true);
       return;
@@ -136,13 +188,22 @@ function BoothShell({ config }: { config: BoothConfig }) {
     setTarget(next);
   }
   async function logout() {
+    const expected = tokenRef.current;
+    const generation = sessionGeneration.current;
+    if (expected !== boothTokenStore.get()) {
+      syncSession();
+      return;
+    }
     try {
-      await boothApi.logout();
-      boothTokenStore.set(null);
-      setToken(null);
-      setTarget(null);
+      await boothApi.logout(expected);
+      if (isCurrent(generation, expected)) activateSession(null);
+      else syncSession();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "로그아웃하지 못했습니다.");
+      if (isCurrent(generation, expected))
+        setError(
+          err instanceof Error ? err.message : "로그아웃하지 못했습니다.",
+        );
+      else syncSession();
     }
   }
   const lastEvent = data?.events.find(
@@ -395,6 +456,8 @@ function BoothShell({ config }: { config: BoothConfig }) {
                 key={target.round_id + target.kind + target.code + target.side}
                 target={target}
                 data={data}
+                sessionToken={token}
+                onSessionChanged={syncSession}
                 onClose={() => setTarget(null)}
                 onFilled={() => {
                   setTarget(null);
@@ -454,13 +517,12 @@ function BoothShell({ config }: { config: BoothConfig }) {
             value={recovery}
             onChange={(e) => setRecovery(e.target.value)}
             type="password"
+            disabled={joinBusy}
           />
           <Button
-            disabled={!recovery.trim()}
+            disabled={joinBusy || !recovery.trim()}
             onClick={() => {
-              boothTokenStore.set(recovery.trim());
-              setToken(recovery.trim());
-              setJoinOpen(false);
+              if (!joinBusy) activateSession(recovery.trim());
             }}
           >
             계좌 복구하기

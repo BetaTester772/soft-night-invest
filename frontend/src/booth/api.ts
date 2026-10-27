@@ -10,30 +10,37 @@ import type {
 
 export const boothApi = {
   config: () => request<BoothConfig>("/booth/config"),
-  state: (roundId?: number) =>
+  state: (roundId?: number, credential?: string | null) =>
     request<BoothState>("/booth/state", {
       auth: "booth",
       query: { round_id: roundId },
+      credential,
     }),
   join: (nickname: string) =>
     request<{ token: string; participant: { id: number; nickname: string } }>(
       "/booth/join",
       { method: "POST", body: { nickname } },
     ),
-  enroll: (roundId: number) =>
+  enroll: (roundId: number, credential?: string | null) =>
     request<Me>("/booth/enroll", {
       method: "POST",
       auth: "booth",
       body: { round_id: roundId },
+      credential,
     }),
-  order: (body: OrderBody) =>
+  order: (body: OrderBody, credential?: string | null) =>
     request<{ order: Order; me: Me }>("/booth/orders", {
       method: "POST",
       auth: "booth",
       body,
+      credential,
     }),
-  logout: () =>
-    request<void>("/booth/logout", { method: "POST", auth: "booth" }),
+  logout: (credential?: string | null) =>
+    request<void>("/booth/logout", {
+      method: "POST",
+      auth: "booth",
+      credential,
+    }),
   status: () => request<AdminStatus>("/booth/admin/status", { auth: "admin" }),
   admin: <T = unknown>(action: string, body?: unknown) =>
     request<T>("/booth/admin/" + action, {

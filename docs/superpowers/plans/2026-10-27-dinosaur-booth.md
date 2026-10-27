@@ -26,43 +26,43 @@
 ## Task 1: 장 도메인과 공통 금융 계산
 Files: execution.py, services/trading.py, booth/domain.py, booth/models.py, db.py, migrations/versions/0012_booth.py; tests/test_booth_domain.py.
 Interfaces: SessionSpec(number,era,opens_at,closes_at); sessions(day), active_session(now,day); execute_stock(cash,quantity,cost,side,ordered,price); fund_buy(amount,model_assets), fund_sell(units,model_assets).
-- [ ] 먼저 테스트: 16:50·17:50 휴장, 원가 비례 제거, 펀드 청약/환매 가치 보존.
-- [ ] pytest tests/test_booth_domain.py 기능 부재 실패 확인.
-- [ ] 공통 계산 추출, 장·계좌·가격·사건·결과 원장과 마이그레이션 구현. 보유 원장은 계좌 행 JSON으로 저장해 잠금 범위를 명확히 한다.
-- [ ] 신규 도메인과 기존 tests/test_domain.py 실행.
+- [x] 먼저 테스트: 16:50·17:50 휴장, 원가 비례 제거, 펀드 청약/환매 가치 보존.
+- [x] pytest tests/test_booth_domain.py 기능 부재 실패 확인.
+- [x] 공통 계산 추출, 장·계좌·가격·사건·결과 원장과 마이그레이션 구현. 보유 원장은 계좌 행 JSON으로 저장해 잠금 범위를 명확히 한다.
+- [x] 신규 도메인과 기존 tests/test_domain.py 실행.
 
 ## Task 2: 참가·계좌·주문·조회 API
 Files: booth/accounts.py, views.py, routes.py, schemas.py; api/app.py, config.py; tests/test_booth_api.py.
 Interfaces: /api/booth/config, /state?round_id, /join, /enroll, /orders, /logout. 본인 계좌는 일관된 /state 응답에 포함한다. 주문 body={round_id,request_id,kind,code,side,quantity|amount|units}. 부스 토큰은 기존 토큰과 분리.
-- [ ] 먼저 API 테스트: 닉네임 중복, 인증 누락, 장 참가 1회 지급, 초과 주문, 재전송과 본문 충돌, 마감·다른 장, 펀드 평가액.
-- [ ] 404 등 기대 실패 확인 후 참가·토큰 해시·장 계좌·서버 체결·통합 현황을 구현.
-- [ ] API와 기존 회귀 테스트 실행.
+- [x] 먼저 API 테스트: 닉네임 중복, 인증 누락, 장 참가 1회 지급, 초과 주문, 재전송과 본문 충돌, 마감·다른 장, 펀드 평가액.
+- [x] 404 등 기대 실패 확인 후 참가·토큰 해시·장 계좌·서버 체결·통합 현황을 구현.
+- [x] API와 기존 회귀 테스트 실행.
 
 ## Task 3: 시세·펀드·사건·마감·관리 API
 Files: booth/market.py, funds.py, admin.py, simulation.py; api/app.py, config.py; tests/test_booth_market.py.
 Interfaces: run_due(factory,now,day), advance(session,round,now); admin status/control/news/incident/disqualify/recover/confirm.
-- [ ] 먼저 테스트: 구간 중복 방지·30초 운용·공개 가격만 입력·섹터 충격·운석 1회·30초 지연 정지·누락 생략·마감 불변·결과 수정 버전.
-- [ ] 실패 확인 후 스케줄러와 관리자 운영 API 구현. 비공개 구간 seed/사건 계획을 공개 응답에서 제외.
-- [ ] 전체 backend pytest·ruff·mypy 실행.
+- [x] 먼저 테스트: 구간 중복 방지·30초 운용·공개 가격만 입력·섹터 충격·운석 1회·30초 지연 정지·누락 생략·마감 불변·결과 수정 버전.
+- [x] 실패 확인 후 스케줄러와 관리자 운영 API 구현. 비공개 구간 seed/사건 계획을 공개 응답에서 제외.
+- [x] 전체 backend pytest·ruff·mypy 실행.
 
 ## Task 4: 실제 데이터 참가·직접 매매·펀드 화면
 Files: frontend/src/booth/{types.ts,api.ts,BoothApp.tsx,MarketView.tsx,FundsView.tsx,PortfolioView.tsx,TradeDialog.tsx,Booth.module.css}, App.tsx; booth/__tests__/BoothApp.test.tsx.
 Interfaces: 기존 request/useApi/Modal/LineChart/UI 재사용. 서버 config의 study 모드로 기존 화면 유지, booth 모드로 기본 부스 화면 선택.
-- [ ] 먼저 UI 테스트: 닉네임 참가·거래 오류·펀드 매수 후 서버 데이터·휴장 주문 차단·장 전환 늦은 응답 무시.
-- [ ] 실패 확인 후 승인 시안의 배치·색을 React로 구현하고 하드코딩 예시값 없이 API 연결.
-- [ ] vitest·타입 검사·빌드 실행.
+- [x] 먼저 UI 테스트: 닉네임 참가·거래 오류·펀드 매수 후 서버 데이터·휴장 주문 차단·장 전환 늦은 응답 무시.
+- [x] 실패 확인 후 승인 시안의 배치·색을 React로 구현하고 하드코딩 예시값 없이 API 연결.
+- [x] vitest·타입 검사·빌드 실행.
 
 ## Task 5: 랭킹·부스 송출·운영 화면과 설정
 Files: booth/{RankingView.tsx,BroadcastView.tsx,AdminView.tsx}, index.html, vite.config.ts, .env.example, docker-compose.yml, README.md, frontend/DESIGN.md; booth/__tests__/Operations.test.tsx.
 Interfaces: 설정된 public_url의 QR, 장별 확정 결과, X-Admin-Key 운영 제어.
-- [ ] 먼저 테스트: 확정 전 시상 대기·확정 1~3위·과거 장·관리자 인증·실제 참가 URL QR.
-- [ ] 실패 확인 후 화면·QR 라이브러리·배포 설정·문서를 구현. 주소가 없으면 운영자 설정 안내.
-- [ ] 전체 frontend와 backend 회귀 검사 실행.
+- [x] 먼저 테스트: 확정 전 시상 대기·확정 1~3위·과거 장·관리자 인증·실제 참가 URL QR.
+- [x] 실패 확인 후 화면·QR 라이브러리·배포 설정·문서를 구현. 주소가 없으면 운영자 설정 안내.
+- [x] 전체 frontend와 backend 회귀 검사 실행.
 
 ## Task 6: 운영 검증과 전체 검토
 Files: tests/test_booth_concurrency.py, docs/dev/booth-validation.md.
-- [ ] PostgreSQL 사용 가능 여부 확인, 동시 주문·잠금·기존 데이터 보존 마이그레이션 upgrade/check/downgrade/upgrade 검증.
-- [ ] 전체 장 가격 경로 시뮬레이션, 80명 폴링·주문 측정과 결과 기록.
-- [ ] 실제 서버의 모바일·데스크톱·부스 화면과 참가/거래/펀드/마감 브라우저 확인.
-- [ ] 새 검토자의 전체 변경 검토, 중요한 발견은 실패 테스트 후 수정.
-- [ ] 검증 결과와 미검증 범위를 기록하고 사용자에게 전달.
+- [x] PostgreSQL 사용 가능 여부 확인, 동시 주문·잠금·기존 데이터 보존 마이그레이션 upgrade/check/downgrade/upgrade 검증.
+- [x] 전체 장 가격 경로 시뮬레이션, 80명 폴링·주문 측정과 결과 기록.
+- [x] 실제 서버의 모바일·데스크톱·부스 화면과 참가/거래/펀드/마감 브라우저 확인.
+- [x] 새 검토자의 전체 변경 검토, 중요한 발견은 실패 테스트 후 수정.
+- [x] 검증 결과와 미검증 범위를 기록하고 사용자에게 전달.

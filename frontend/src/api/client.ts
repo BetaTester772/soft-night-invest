@@ -29,6 +29,8 @@ export interface RequestOptions {
   query?: Record<string, string | number | boolean | null | undefined>;
   /** `participant` = Bearer (required), `optional` = Bearer if present, `admin` = X-Admin-Key. */
   auth?: AuthMode;
+  /** Pin a request to the session that owns its data or mutation intent. */
+  credential?: string | null;
   signal?: AbortSignal;
   /** Parse as blob instead of JSON. */
   responseType?: 'json' | 'blob';
@@ -107,7 +109,7 @@ export function authHeaders(auth: AuthMode, credential: string | null = credenti
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, form, query, auth = 'none', signal, responseType = 'json', captcha } = options;
   // 이 요청이 실제로 보낸 자격 증명. 401은 이것이 아직 현재 값일 때만 세션 거절로 본다.
-  const credential = credentialFor(auth);
+  const credential = options.credential === undefined ? credentialFor(auth) : options.credential;
   const headers: Record<string, string> = {
     Accept: responseType === 'json' ? 'application/json' : '*/*',
     ...authHeaders(auth, credential),

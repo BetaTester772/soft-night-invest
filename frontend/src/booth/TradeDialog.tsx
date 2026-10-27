@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, Modal, TextField } from "../components/ui";
 import { boothApi } from "./api";
+import { boothTokenStore } from "../api/storage";
 import { parseUnits, units, won } from "./format";
 import type { BoothState, OrderBody, TradeTarget } from "./types";
 import styles from "./Booth.module.css";
@@ -10,12 +11,17 @@ export function TradeDialog({
   data,
   onClose,
   onFilled,
+  sessionToken,
+  onSessionChanged,
 }: {
   target: TradeTarget;
   data: BoothState;
   onClose: () => void;
   onFilled: () => void;
+  sessionToken: string | null;
+  onSessionChanged: () => void;
 }) {
+  const intendedToken = useRef(sessionToken);
   const [side, setSide] = useState<"buy" | "sell">(target.side ?? "buy");
   const [value, setValue] = useState(
     target.kind === "fund" && target.side !== "sell" ? "100000" : "1",
@@ -44,6 +50,10 @@ export function TradeDialog({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (busy || closed) return;
+    if (boothTokenStore.get() !== intendedToken.current) {
+      onSessionChanged();
+      return;
+    }
     const amount =
       target.kind === "fund" && side === "sell"
         ? parseUnits(value)
@@ -69,8 +79,14 @@ export function TradeDialog({
     setBusy(true);
     setError("");
     try {
-      await boothApi.order({ ...body, request_id: request.current.id });
-      if (mounted.current) onFilled();
+      await boothApi.order(
+        { ...body, request_id: request.current.id },
+        intendedToken.current,
+      );
+      if (mounted.current) {
+        if (boothTokenStore.get() === intendedToken.current) onFilled();
+        else onSessionChanged();
+      }
     } catch (err) {
       if (mounted.current)
         setError(
