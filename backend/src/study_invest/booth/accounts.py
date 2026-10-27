@@ -7,7 +7,7 @@ import secrets
 import unicodedata
 from datetime import date, datetime
 from fractions import Fraction
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -106,13 +106,22 @@ def register(s: Session, nickname: str, now: datetime, day: date) -> tuple[Booth
     return person, token
 
 
-def get_account(s: Session, round_id: int, participant_id: int) -> BoothAccount | None:
-    return s.scalar(
-        select(BoothAccount).where(
-            BoothAccount.round_id == round_id,
-            BoothAccount.owner == f"p:{participant_id}",
-        )
+def get_account(
+    s: Session,
+    round_id: int,
+    participant_id: int,
+    *,
+    lock: Literal["update", "share"] | None = None,
+) -> BoothAccount | None:
+    statement = select(BoothAccount).where(
+        BoothAccount.round_id == round_id,
+        BoothAccount.owner == f"p:{participant_id}",
     )
+    if lock:
+        statement = statement.with_for_update(read=lock == "share").execution_options(
+            populate_existing=True
+        )
+    return s.scalar(statement)
 
 
 def enroll(s: Session, row: BoothRound, person: BoothParticipant, now: datetime) -> BoothAccount:

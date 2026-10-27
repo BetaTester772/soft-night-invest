@@ -42,6 +42,8 @@
 			lb_try_interval 250ms
 			header_up Expect 100-continue
 			transport http {
+				# Close idle connections before uvicorn’s default five-second timeout.
+				keepalive 4s
 				expect_continue_timeout 5s
 			}
 		}

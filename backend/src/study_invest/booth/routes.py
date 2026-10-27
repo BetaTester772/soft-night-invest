@@ -60,6 +60,9 @@ def state_info(
     rows = accounts.ensure_rounds(s, state.settings.booth_date)
     row = accounts.lock_round(s, round_id or selected_id(rows, now), shared=True)
     person = accounts.participant_for(s, token)
+    if person is not None:
+        # Keep this participant's balance, holdings and order history consistent.
+        accounts.get_account(s, row.number, person.id, lock="share")
     result = views.snapshot(s, rows, row, person, now)
     s.commit()
     return result
@@ -92,8 +95,10 @@ def enroll(body: schemas.Enroll, state: StateDep, s: SessionDep, token: TokenDep
 def order(body: schemas.Order, state: StateDep, s: SessionDep, token: TokenDep) -> dict[str, Any]:
     person = accounts.participant_for(s, token, required=True)
     assert person is not None
-    row = accounts.lock_round(s, body.round_id)
-    account = accounts.get_account(s, row.number, person.id)
+    # Orders share a stable price version; only the owner's balance is exclusive.
+    # Always lock the round before the account, as scheduler/admin operations do.
+    row = accounts.lock_round(s, body.round_id, shared=True)
+    account = accounts.get_account(s, row.number, person.id, lock="update")
     if account is None:
         raise DomainError("NOT_ENROLLED", "먼저 이 장에 참가하세요.")
     filled = accounts.place_order(

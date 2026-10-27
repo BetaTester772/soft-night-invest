@@ -1,0 +1,17 @@
+services:
+  backend:
+    image: ${STRESS_BACKEND_IMAGE:-soft-night-invest-backend:latest}
+    ports: !override []
+    cpus: 1.0
+    cpu_shares: 256
+  frontend:
+    image: ${STRESS_FRONTEND_IMAGE:-soft-night-invest-frontend:latest}
+    ports: !override ["127.0.0.1:18080:80"]
+    cpu_shares: 256
+  pgbouncer:
+    image: soft-night-invest-pgbouncer:latest
+    cpu_shares: 256
+  db:
+    cpu_shares: 256
+  pgadmin:
+    profiles: ["tools"]
