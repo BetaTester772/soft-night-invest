@@ -11,6 +11,7 @@ from collections.abc import AsyncIterator, Callable
 from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import anyio.to_thread
 from fastapi import FastAPI, Request, Response
@@ -21,7 +22,10 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.exc import TimeoutError as PoolTimeoutError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from ..booth import market as booth_market
+from ..booth import routes as booth_routes
 from ..captcha import CaptchaVerifier, make_captcha
+from ..clock import OffsetClock
 from ..config import Settings
 from ..db import DatabasePools, create_schema, make_session_factory
 from ..event_calendar import EventCalendar, seconds_until_next_batch
@@ -59,9 +63,18 @@ async def _scheduler(state: AppState) -> None:
     """
     while True:
         try:
-            results = await asyncio.to_thread(
-                run_due, state.batch_session_factory, state.clock(), state.calendar, state.rng
-            )
+            results: list[Any]
+            if state.settings.event_mode == "booth":
+                results = await asyncio.to_thread(
+                    booth_market.run_due,
+                    state.batch_session_factory,
+                    state.clock(),
+                    state.settings.booth_date,
+                )
+            else:
+                results = await asyncio.to_thread(
+                    run_due, state.batch_session_factory, state.clock(), state.calendar, state.rng
+                )
             for r in results:
                 log.info("batch: %s", r)
         except Exception:
@@ -69,7 +82,12 @@ async def _scheduler(state: AppState) -> None:
         # 주기적으로 확인하되, 09:00·18:00 정각에는 바로 깨어나 공시·정산 지연을 없앤다.
         # 남은 시간은 앱 시계 기준이므로 배속으로 나눠 실제 대기 시간으로 바꾼다.
         until_batch = seconds_until_next_batch(state.clock()) / state.time_scale + BATCH_WAKE_DELAY
-        await asyncio.sleep(min(state.settings.scheduler_interval_seconds, until_batch))
+        delay = (
+            min(1.0, 1 / state.time_scale)
+            if state.settings.event_mode == "booth"
+            else min(state.settings.scheduler_interval_seconds, until_batch)
+        )
+        await asyncio.sleep(max(0.01, delay))
 
 
 def create_app(
@@ -98,6 +116,9 @@ def create_app(
         captcha=captcha or make_captcha(settings),
         time_scale=settings.time_scale,
     )
+
+    if settings.event_mode == "booth" and settings.qa_tools:
+        state.clock = OffsetClock(state.clock)
 
     @contextlib.asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -257,6 +278,8 @@ def create_app(
     app.include_router(routes_public.router)
     app.include_router(routes_me.router)
     app.include_router(routes_admin.router)
+    app.include_router(booth_routes.router)
+    app.include_router(booth_routes.admin)
 
     if settings.frontend_dist is not None:
         _mount_frontend(app, settings.frontend_dist)

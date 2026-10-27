@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..event_calendar import EventCalendar, to_kst
+from ..execution import execute_stock
 from ..instruments import BY_CODE, INSTRUMENTS, InstrumentKind
 from ..models import (
     Order,
@@ -111,15 +112,10 @@ def place_order(
     amount: int | None = price * quantity if price is not None and reason is None else None
     if amount is not None:
         holding = holding_of(participant, code)
-        if side is Side.BUY:
-            participant.cash -= amount
-            holding.quantity += quantity
-            holding.cost += amount
-        else:
-            removed = round_half_up(Fraction(holding.cost * quantity, holding.quantity), 1)
-            holding.quantity -= quantity
-            holding.cost = 0 if holding.quantity == 0 else holding.cost - removed
-            participant.cash += amount
+        assert price is not None
+        participant.cash, holding.quantity, holding.cost = execute_stock(
+            participant.cash, holding.quantity, holding.cost, side, quantity, price
+        )
 
     order = Order(
         participant_id=participant.id,

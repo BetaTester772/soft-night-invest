@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { cx } from '../../../lib/cx';
 import { Icon } from '../Icon/Icon';
 import styles from './Modal.module.css';
+import { t, useLanguage } from '../../../i18n';
 
 export interface ModalProps {
   open: boolean;
@@ -34,6 +35,7 @@ export function Modal({
   size = 'md',
   closeOnBackdrop = true,
 }: ModalProps) {
+  useLanguage();
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const descId = useId();
@@ -110,7 +112,7 @@ export function Modal({
               </p>
             )}
           </div>
-          <button type="button" className={styles.close} onClick={onClose} aria-label="닫기">
+          <button type="button" className={styles.close} onClick={onClose} aria-label={t('닫기')}>
             <Icon name="close" />
           </button>
         </header>

@@ -152,6 +152,7 @@ def test_qa_unlimited_ignores_event_end(monkeypatch: pytest.MonkeyPatch) -> None
     "origin", ["2026-10-01T15:00", "2026-10-01T15:00:00+09:00", "2026-10-01T06:00:00Z"]
 )
 def test_time_settings_from_env(monkeypatch: pytest.MonkeyPatch, origin: str) -> None:
+    monkeypatch.setenv("STUDY_INVEST_EVENT_MODE", "study")
     monkeypatch.setenv("STUDY_INVEST_EVENT_START", "2026-09-24")
     monkeypatch.setenv("STUDY_INVEST_TIME_SCALE", " 24 ")
     monkeypatch.setenv("STUDY_INVEST_TIME_ORIGIN", origin)  # 시간대가 없으면 KST
@@ -244,7 +245,7 @@ def test_scheduler_waits_real_seconds_under_scaled_clock(monkeypatch: pytest.Mon
         calendar=None,
         rng=None,
         time_scale=24,
-        settings=SimpleNamespace(scheduler_interval_seconds=30.0),
+        settings=SimpleNamespace(scheduler_interval_seconds=30.0, event_mode="study"),
     )
     with pytest.raises(asyncio.CancelledError):
         asyncio.run(app_module._scheduler(state))  # type: ignore[arg-type]

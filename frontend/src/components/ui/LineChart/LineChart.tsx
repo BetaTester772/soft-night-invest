@@ -12,6 +12,7 @@ import {
   xPosition,
 } from './chartGeometry';
 import styles from './LineChart.module.css';
+import { t, useLanguage } from '../../../i18n';
 
 export interface ChartPoint {
   x: string;
@@ -89,7 +90,7 @@ export function LineChart({
   points,
   label,
   height = 240,
-  formatY = (y) => `${formatNumber(y)}원`,
+  formatY: customFormatY,
   formatX = (x) => x,
   tone,
   interactive = true,
@@ -100,6 +101,8 @@ export function LineChart({
   onActiveChange,
   className,
 }: LineChartProps) {
+  const language = useLanguage();
+  const formatY = customFormatY ?? ((y: number) => language === 'en' ? `KRW ${formatNumber(y)}` : `${formatNumber(y)}원`);
   const wrapRef = useRef<HTMLDivElement>(null);
   const width = useMeasuredWidth(wrapRef);
   const [innerActive, setInnerActive] = useState<number | null>(null);
@@ -147,7 +150,7 @@ export function LineChart({
   if (!first || !last) {
     return (
       <div ref={wrapRef} className={cx(styles.wrap, styles.empty, className)} style={{ height }}>
-        아직 가격 이력이 없습니다.
+        {t('아직 가격 이력이 없습니다.')}
       </div>
     );
   }
@@ -182,7 +185,7 @@ export function LineChart({
   const at = active != null && active < points.length ? active : points.length - 1;
   const lastDefined = (values: Array<number | null>) => values.findLast((v) => v != null) ?? null;
   const summary = [
-    `${label}: ${formatX(first.x)} ${formatY(first.y)}에서 ${formatX(last.x)} ${formatY(last.y)}`,
+    `${label}: ${formatX(first.x)} ${formatY(first.y)} → ${formatX(last.x)} ${formatY(last.y)}`,
     ...lines.map((o) => {
       const v = lastDefined(o.values);
       return v == null ? null : `${o.label} ${formatY(v)}`;
@@ -205,10 +208,10 @@ export function LineChart({
   return (
     <div ref={wrapRef} className={cx(styles.wrap, styles[dir], className)}>
       {showLegend && (
-        <ul className={styles.legend} aria-label="차트 범례">
+        <ul className={styles.legend} aria-label={t('차트 범례')}>
           <li className={styles.legendItem}>
             <span className={cx(styles.key, styles.keyLine, styles.keyPrice)} aria-hidden="true" />
-            <span className={styles.legendName}>{seriesLabel}</span>
+            <span className={styles.legendName}>{t(seriesLabel)}</span>
             <span className={styles.legendValue}>{formatY((points[at] ?? last).y)}</span>
           </li>
           {lines.map((o) => {

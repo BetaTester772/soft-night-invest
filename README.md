@@ -1,6 +1,23 @@
-# 공부장려 모의투자 이벤트
+# 난 운석이 떨어진 줄 알았지
 
-공부 인증에 투자금(현금)을 보상으로 주는 2주 모의투자 이벤트 시스템. 주식 4종목과 코인(병더리움) 1종목을 운용한다.
+2026 소프트의 밤 공룡 모의투자 부스. 기존 공부장려 투자 시스템의 금융 계산·가격 산정·UI·운영 인프라를 재사용한다. 10월 30일 세 개 장에서 주식 6종목을 직접 거래하거나 규칙 기반 펀드 3종에 투자하고, 장별 수익률 1~3위를 시상한다.
+
+| 장 | 한국 시간 | 시대 |
+|---|---|---|
+| 1장 | 16:00–16:50 | 트라이아스기 |
+| 2장 | 17:00–17:50 | 쥐라기 |
+| 3장 | 19:30–20:20 | 백악기 |
+
+장마다 현금 100만원, 종목 가격, 펀드 기준가를 초기화한다. 이전 장의 결과는 보존한다. 가격과 펀드 운용은 30초, 화면 조회는 2초 간격이다. 90초(3회 갱신 주기) 이상 가격 갱신이 지연되면 거래를 중단하고 운영자가 재개한다.
+
+닉네임으로 참가하며 직접 주식과 펀드를 함께 보유할 수 있다. 펀드는 공통 모델 포트폴리오의 기준가에 연동된다. 외부 AI 모델은 호출하지 않는다. 실제 금전 거래는 없다.
+
+- 부스 API: [docs/dev/booth-api.md](docs/dev/booth-api.md)
+- 승인 설계: [공룡 증시 전환 설계](docs/superpowers/specs/2026-10-27-dinosaur-booth-design.md)
+- 검증 기록: [docs/dev/booth-validation.md](docs/dev/booth-validation.md)
+- 화면: /, /funds, /portfolio, /ranking, /broadcast, /admin
+
+기존 공부 이벤트는 STUDY_INVEST_EVENT_MODE=study로 실행한다. 기존 DB와 API는 유지하며, 아래 공부 이벤트 규격과 CLI는 이 호환 모드에 해당한다.
 
 - 시스템 규격서: [docs/spec/README.md](docs/spec/README.md) (v0.4)
 - API 계약: [docs/dev/api.md](docs/dev/api.md)
@@ -20,7 +37,7 @@
 ## Docker Compose로 실행
 
 ```bash
-cp .env.example .env        # STUDY_INVEST_ADMIN_KEY, POSTGRES_PASSWORD, SMTP(인증 메일) 설정
+cp .env.example .env        # 관리자 키와 DB 비밀번호, PUBLIC_URL(참가 QR 주소) 설정
 docker compose up --build
 ```
 
@@ -28,7 +45,7 @@ docker compose up --build
 - pgAdmin: http://localhost:5050 (이 PC에서만). 서버 "study_invest (pgAdmin 풀)"이 등록되어 있고, 비밀번호는 `.env`의 `PGADMIN_DB_PASSWORD`
 - DB 연결은 PgBouncer를 거친다: api 풀 20, batch 풀 2, pgAdmin 풀 5. [docs/dev/db-pools.md](docs/dev/db-pools.md)
 - API: http://localhost:8080/api (백엔드 직접 접근은 http://localhost:8000, 문서는 `/docs`)
-- 백엔드 컨테이너는 시작할 때 `alembic upgrade head`를 실행하고, `STUDY_INVEST_SCHEDULER=1`이면 09:00 공시·18:00 정산을 자동으로 돌린다.
+- 백엔드 컨테이너는 시작할 때 `alembic upgrade head`를 실행하고, `STUDY_INVEST_SCHEDULER=1`이면 booth 모드에서 장 개장·30초 가격 갱신·마감을 자동 운영한다. study 모드에서는 기존 09:00 공시·18:00 정산을 실행한다.
 
 ## CI · 의존성 업데이트
 
@@ -48,6 +65,16 @@ docker compose up --build
 [`.github/dependabot.yml`](.github/dependabot.yml): Python(uv.lock)·npm·Docker 이미지·compose 이미지·GitHub Actions를 매주 월요일 09:00(KST) 확인해 업데이트 PR을 만든다. minor·patch는 생태계별로 묶는다. PostgreSQL major와 Python·Node 런타임 버전은 자동으로 올리지 않는다(데이터 이전·CI 버전과 함께 의도적으로 올릴 것).
 
 백엔드 의존성은 `backend/uv.lock`에 고정되고, CI와 Docker 이미지 모두 이 버전 그대로(해시 검증) 설치한다. `pyproject.toml`의 의존성을 바꾸면 `cd backend && uv lock`으로 lock도 함께 커밋한다. 빠뜨리면 CI와 이미지 빌드가 실패한다.
+
+## 부스 운영 설정
+
+기본값은 STUDY_INVEST_EVENT_MODE=booth, STUDY_INVEST_BOOTH_DATE=2026-10-30이다. 공개 배포 주소를 STUDY_INVEST_PUBLIC_URL=https://your-domain.example 형식으로 설정하면 /broadcast에 참가 QR이 표시된다. 경로·인증 정보·쿼리가 있는 주소는 거부한다. 주소가 비어 있으면 QR 설정 안내가 표시된다.
+
+관리자 /admin에서 장 상태와 지연을 확인하고 일시 정지·재개, 속보/섹터 사건 예약, 참가자 실격/현장 복구, 시상 결과 확정을 처리한다. 최종 결과는 장 마감 후 생성되며 운영자가 최신 버전을 확정해야 부스 화면에 시상자가 표시된다. 닉네임만으로 현실의 중복 참가를 완벽하게 막지는 않으므로 현장 확인 후 장별 실격 처리한다.
+
+QA는 STUDY_INVEST_QA_TOOLS=1에서만 사용할 수 있다. 관리자 화면의 다음 장 개장·30초 진행으로 테스트한다. TIME_ORIGIN과 TIME_SCALE을 지정하면 BOOTH_CLOCK_START(기본 15:59:50)부터 가속된다. 실제 행사에서는 QA_TOOLS=0과 실제 시계를 사용한다. 개발 서버도 자동 가격 갱신에는 STUDY_INVEST_SCHEDULER=1이 필요하다.
+
+전체 장 시뮬레이션은 backend에서 .venv/bin/python -m study_invest.booth.simulation --paths 25 --seed 42로 실행한다. 매 경로는 별도 메모리 DB를 사용해 실제 운영 DB를 읽거나 바꾸지 않는다.
 
 ## 로컬 개발
 
