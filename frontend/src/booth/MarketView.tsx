@@ -1,3 +1,4 @@
+import { t, useLanguage } from "../i18n";
 import { useState } from "react";
 import { Button, LineChart } from "../components/ui";
 import { pct, time, tone, won } from "./format";
@@ -5,10 +6,11 @@ import type { BoothState, TradeTarget } from "./types";
 import styles from "./Booth.module.css";
 
 export function NewsFeed({ data }: { data: BoothState }) {
+  useLanguage();
   return (
     <section className={styles.panel}>
       <div className={styles.panelHead}>
-        <h2>공룡 속보</h2>
+        <h2>{t("공룡 속보")}</h2>
       </div>
       <div className={styles.news}>
         {data.events.length ? (
@@ -17,18 +19,16 @@ export function NewsFeed({ data }: { data: BoothState }) {
               <small>
                 {time(e.created_at)} ·{" "}
                 {e.kind === "meteor"
-                  ? "운석 속보"
+                  ? t("운석 속보")
                   : e.kind === "ghost"
-                    ? "공룡 귀신"
-                    : "시장 소식"}
+                    ? t("공룡 귀신")
+                    : t("시장 소식")}
               </small>
               <p>{e.headline}</p>
             </article>
           ))
         ) : (
-          <p className={styles.muted}>
-            아직 속보가 없습니다. 다음 사건을 기다려보세요.
-          </p>
+          <p className={styles.muted}>{t("아직 속보가 없습니다. 다음 사건을 기다려보세요.")}</p>
         )}
       </div>
     </section>
@@ -41,6 +41,7 @@ export function MarketView({
   data: BoothState;
   onTrade: (target: TradeTarget) => void;
 }) {
+  useLanguage();
   const [selected, setSelected] = useState("PANG");
   const instrument =
     data.instruments.find((i) => i.code === selected) ?? data.instruments[0];
@@ -49,17 +50,17 @@ export function MarketView({
     <div className={styles.marketGrid}>
       <section className={styles.panel}>
         <div className={styles.panelHead}>
-          <h2>공룡 증시</h2>
-          <small className={styles.muted}>장 시작 가격 대비</small>
+          <h2>{t("공룡 증시")}</h2>
+          <small className={styles.muted}>{t("장 시작 가격 대비")}</small>
         </div>
         <div className={styles.tableScroll}>
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>종목 / 섹터</th>
-                <th>현재가</th>
-                <th>장 수익률</th>
-                <th className={styles.sparkColumn}>가격 흐름</th>
+                <th>{t("종목 / 섹터")}</th>
+                <th>{t("현재가")}</th>
+                <th>{t("장 수익률")}</th>
+                <th className={styles.sparkColumn}>{t("가격 흐름")}</th>
               </tr>
             </thead>
             <tbody>
@@ -86,7 +87,7 @@ export function MarketView({
                     <div className={styles.spark}>
                       <LineChart
                         points={i.history}
-                        label={i.name + " 가격 흐름"}
+                        label={i.name + t(" 가격 흐름")}
                         height={48}
                         interactive={false}
                       />
@@ -120,12 +121,12 @@ export function MarketView({
                 }
                 disabled={!data.round.is_open || Boolean(me?.disqualified)}
               >
-                주식 매매
+                {t("주식 매매")}
               </Button>
             </div>
             <LineChart
               points={instrument.history}
-              label={instrument.name + " 장중 가격 이력"}
+              label={instrument.name + t(" 장중 가격 이력")}
               formatX={time}
               height={235}
             />
@@ -136,25 +137,25 @@ export function MarketView({
         {me?.enrolled && (
           <section className={styles.panel + " " + styles.balance}>
             <small className={styles.muted}>
-              {me.nickname} 님의 이번 장 자산
+              {t("{nickname} 님의 이번 장 자산", { nickname: me.nickname })}
             </small>
             <strong>{won(me.total_assets)}</strong>
             <span className={styles[tone(me.return_rate)]}>
               {pct(me.return_rate)}
             </span>
             <dl>
-              <dt>주문 가능 현금</dt>
+              <dt>{t("주문 가능 현금")}</dt>
               <dd>{won(me.cash)}</dd>
-              <dt>주식 평가액</dt>
+              <dt>{t("주식 평가액")}</dt>
               <dd>{won(me.stock_value)}</dd>
-              <dt>펀드 평가액</dt>
+              <dt>{t("펀드 평가액")}</dt>
               <dd>{won(me.fund_value)}</dd>
             </dl>
           </section>
         )}
         <NewsFeed data={data} />
         <section className={styles.panel + " " + styles.leaders}>
-          <h2>이번 장 수익률 TOP 3</h2>
+          <h2>{t("이번 장 수익률 TOP 3")}</h2>
           {data.ranking
             .filter((r) => r.eligible)
             .slice(0, 3)
@@ -169,7 +170,7 @@ export function MarketView({
               </div>
             ))}
           {!data.ranking.some((r) => r.eligible) && (
-            <p className={styles.muted}>첫 거래를 기다리고 있습니다.</p>
+            <p className={styles.muted}>{t("첫 거래를 기다리고 있습니다.")}</p>
           )}
         </section>
       </aside>

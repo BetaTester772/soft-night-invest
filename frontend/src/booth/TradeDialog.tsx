@@ -1,3 +1,4 @@
+import { t, useLanguage } from "../i18n";
 import { useEffect, useRef, useState } from "react";
 import { Button, Modal, TextField } from "../components/ui";
 import { boothApi } from "./api";
@@ -21,6 +22,7 @@ export function TradeDialog({
   sessionToken: string | null;
   onSessionChanged: () => void;
 }) {
+  useLanguage();
   const intendedToken = useRef(sessionToken);
   const [side, setSide] = useState<"buy" | "sell">(target.side ?? "buy");
   const [value, setValue] = useState(
@@ -104,18 +106,18 @@ export function TradeDialog({
   }
   const label =
     target.kind === "stock"
-      ? "거래할 수량 (주)"
+      ? t("거래할 수량 (주)")
       : side === "buy"
-        ? "투자할 금액 (원)"
-        : "환매할 좌수";
+        ? t("투자할 금액 (원)")
+        : t("환매할 좌수");
   const verb =
     target.kind === "fund"
       ? side === "buy"
-        ? "펀드 매수하기"
-        : "펀드 환매하기"
+        ? t("펀드 매수하기")
+        : t("펀드 환매하기")
       : side === "buy"
-        ? "주식 매수하기"
-        : "주식 매도하기";
+        ? t("주식 매수하기")
+        : t("주식 매도하기");
   return (
     <Modal
       open
@@ -126,8 +128,8 @@ export function TradeDialog({
       closeOnBackdrop={!busy}
       description={
         target.kind === "fund"
-          ? "매수한 시점의 기준가부터 내 수익률에 반영됩니다."
-          : "서버의 현재 공시 가격으로 즉시 체결합니다."
+          ? t("매수한 시점의 기준가부터 내 수익률에 반영됩니다.")
+          : t("서버의 현재 공시 가격으로 즉시 체결합니다.")
       }
     >
       <form onSubmit={submit} className={styles.form}>
@@ -141,7 +143,7 @@ export function TradeDialog({
               setValue(target.kind === "fund" ? "100000" : "1");
             }}
           >
-            매수
+            {t("매수")}
           </button>
           <button
             type="button"
@@ -152,13 +154,13 @@ export function TradeDialog({
               setValue(target.kind === "fund" ? units(held) : "1");
             }}
           >
-            {target.kind === "fund" ? "환매" : "매도"}
+            {target.kind === "fund" ? t("환매") : t("매도")}
           </button>
         </div>
         <p className={styles.muted}>
           {target.kind === "fund"
-            ? "기준가 " + won(fund?.nav ?? 0)
-            : "현재가 " + won(stock?.price ?? 0)}
+            ? t("기준가 ") + won(fund?.nav ?? 0)
+            : t("현재가 ") + won(stock?.price ?? 0)}
         </p>
         <TextField
           label={label}
@@ -171,17 +173,15 @@ export function TradeDialog({
           required
         />
         <p className={styles.muted}>
-          주문 가능 현금 {won(data.me?.cash ?? 0)} · 보유{" "}
-          {target.kind === "fund" ? units(held) + "좌" : held + "주"}
+          {t("주문 가능 현금")}{" "}{won(data.me?.cash ?? 0)}{" "}{t("· 보유")}{" "}
+          {target.kind === "fund" ? units(held) + t("좌") : held + t("주")}
         </p>
         {closed && (
-          <p role="alert" className={styles.error}>
-            거래가 중단되었거나 마감되었습니다.
-          </p>
+          <p role="alert" className={styles.error}>{t("거래가 중단되었거나 마감되었습니다.")}</p>
         )}
         {error && (
           <p role="alert" className={styles.error}>
-            {error}
+            {t(error)}
           </p>
         )}
         <Button
