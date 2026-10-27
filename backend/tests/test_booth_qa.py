@@ -26,7 +26,7 @@ def test_qa_clock_can_step_and_move_to_next_session() -> None:
         response = client.post("/api/booth/admin/qa/next", headers=ADMIN)
         assert response.status_code == 200, response.text
         assert client.get("/api/booth/state").json()["round"]["state"] == "open"
-        response = client.post("/api/booth/admin/qa/step", json={"seconds": 10}, headers=ADMIN)
+        response = client.post("/api/booth/admin/qa/step", json={"seconds": 30}, headers=ADMIN)
         assert response.status_code == 200, response.text
         assert client.get("/api/booth/state").json()["round"]["version"] == 1
         response = client.post("/api/booth/admin/qa/next", headers=ADMIN)

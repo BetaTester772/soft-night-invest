@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from ..db import Base
 from ..params import INITIAL_CASH
 from .accounts import ensure_rounds, model_assets
-from .domain import FUNDS
+from .domain import FUNDS, tick_seconds
 from .market import freeze, open_round, tick
 
 
@@ -36,7 +36,9 @@ def simulate(paths: int = 25, seed: int = 42) -> dict[str, Any]:
             with Session(engine) as s:
                 row = ensure_rounds(s, date(2026, 10, 30))[number - 1]
                 open_round(s, row, seed=f"{seed}:{number}:{path}")
-                for n in range(1, 301):
+                duration = int((row.closes_at - row.opens_at).total_seconds())
+                count = duration // tick_seconds(row.private)
+                for n in range(1, count + 1):
                     tick(s, row, n)
                 freeze(s, row, row.closes_at)
                 for code, assets in model_assets(s, row).items():

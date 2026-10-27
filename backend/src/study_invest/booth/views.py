@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from ..params import INITIAL_CASH, KST
 from ..services.common import DomainError
 from .accounts import assert_open, get_account, model_assets, stock_value, valuation
-from .domain import FUNDS, INSTRUMENTS, SECTORS
+from .domain import FUNDS, INSTRUMENTS, SECTORS, tick_seconds
 from .models import (
     BoothAccount,
     BoothEvent,
@@ -42,6 +42,7 @@ def round_view(row: BoothRound, now: datetime) -> dict[str, Any]:
         "state": row.state,
         "is_open": is_open,
         "version": row.version,
+        "update_interval_seconds": tick_seconds(row.private),
         "published_at": iso(row.published_at),
         "paused_reason": row.paused_reason,
     }

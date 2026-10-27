@@ -280,8 +280,16 @@ def qa_clock(state: Any) -> OffsetClock:
 @admin.post("/qa/step")
 def qa_step(body: schemas.Step, state: StateDep) -> dict[str, Any]:
     clock = qa_clock(state)
-    clock.jump_to(clock() + timedelta(seconds=body.seconds))
-    results = market.run_due(state.batch_session_factory, clock(), state.settings.booth_date)
+    results = []
+    remaining = body.seconds
+    while remaining:
+        # Also advance sessions opened by the former ten-second engine safely.
+        step = min(10, remaining)
+        clock.jump_to(clock() + timedelta(seconds=step))
+        results.extend(
+            market.run_due(state.batch_session_factory, clock(), state.settings.booth_date)
+        )
+        remaining -= step
     return {"now": views.iso(clock()), "results": results}
 
 

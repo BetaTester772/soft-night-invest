@@ -4,6 +4,8 @@ from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from .domain import TICK_SECONDS
+
 Positive = Annotated[int, Field(strict=True, ge=1, le=10**15)]
 RoundId = Annotated[int, Field(strict=True, ge=1, le=3)]
 
@@ -70,7 +72,7 @@ class Confirm(Enroll):
 
 
 class Step(Body):
-    seconds: Annotated[int, Field(strict=True, ge=1, le=10)]
+    seconds: Annotated[int, Field(strict=True, ge=1, le=TICK_SECONDS)]
 
 
 class Recover(Body):

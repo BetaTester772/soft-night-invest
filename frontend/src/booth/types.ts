@@ -15,6 +15,7 @@ export interface RoundInfo {
   state: string;
   is_open: boolean;
   version: number;
+  update_interval_seconds?: number;
   published_at: string | null;
   paused_reason: string | null;
 }

@@ -18,13 +18,15 @@
 | POST /api/booth/admin/disqualify | round_id, participant_id, reason. 마감 후에는 결과 수정 버전 생성 |
 | POST /api/booth/admin/confirm | round_id, revision. 최신 시상 결과 확정 |
 | POST /api/booth/admin/recover | participant_id, reason. 이전 토큰 폐기 후 새 복구 토큰 발급 |
-| POST /api/booth/admin/qa/step | QA 전용. seconds(1~10) 진행 |
+| POST /api/booth/admin/qa/step | QA 전용. seconds(1~30) 진행 |
 | POST /api/booth/admin/qa/next | QA 전용. 다음 장 개장으로 이동 |
 
 참가자 API는 Authorization: Bearer 토큰을 사용하며 관리자 API는 기존 X-Admin-Key를 사용한다. 다른 이벤트 토큰을 부스 인증으로 사용할 수 없다. 잘못된 참가 토큰을 보낸 공개 현황 요청도 401이며, 토큰 없는 관람 요청은 가능하다.
 
 주문 공통 필드는 round_id, request_id(8~80자 영문·숫자·콜론·밑줄·하이픈), kind(stock/fund), code, side(buy/sell)다. 주식은 quantity 정수, 펀드 매수는 amount 정수 원, 환매는 units 정수 micro 좌수(1좌=1,000,000)를 보낸다. 불필요한 수량 필드와 bool·소수 수량은 거부한다.
 
-동일 계좌·요청 번호·동일 본문은 이전 주문을 반환한다. 동일 번호에 다른 본문은 REQUEST_CONFLICT다. 네트워크 재시도는 같은 번호를 사용한다. 거래 시각과 최신 잔고·가격 버전은 서버가 잠금을 획득한 뒤 재검사한다. 30초 이상 갱신되지 않은 가격에서는 STALE_PRICE를 반환한다.
+동일 계좌·요청 번호·동일 본문은 이전 주문을 반환한다. 동일 번호에 다른 본문은 REQUEST_CONFLICT다. 네트워크 재시도는 같은 번호를 사용한다. 거래 시각과 최신 잔고·가격 버전은 서버가 잠금을 획득한 뒤 재검사한다. 90초(3회 갱신 주기) 이상 갱신되지 않은 가격에서는 STALE_PRICE를 반환한다.
 
 펀드는 공통 모델 계좌의 기준가 연동 방식이다. 사용자의 청약·환매는 모델 계좌 원금을 바꾸지 않는다. 기준가는 모델 총자산/1,000이고, 좌수와 실제 지급액은 정수·유리수 계산한다. 응답의 표시용 nav(float)를 체결 원장 계산에 사용하지 않는다.
+
+신규 장의 가격 갱신 주기는 30초이며 round.update_interval_seconds로 공개한다. 배포 전에 이미 열린 장은 저장된 구간 번호와 사건 계획을 보존하기 위해 기존 10초 주기를 마감까지 유지한다. 화면 조회는 2초 간격이다.

@@ -9,6 +9,7 @@ from dataclasses import replace
 from datetime import date, datetime, timedelta
 from fractions import Fraction
 from itertools import pairwise
+from math import ceil
 from typing import Any
 
 from sqlalchemy import select
@@ -19,7 +20,7 @@ from ..pricing import draw_stock_randoms, settle_stocks
 from ..services.common import DomainError, audit, batch_lock
 from . import funds
 from .accounts import ensure_rounds, lock_round
-from .domain import SECTORS, TICK_SECONDS, initial_prices
+from .domain import FUND_INTERVAL_SECONDS, SECTORS, TICK_SECONDS, initial_prices, tick_seconds
 from .models import BoothEvent, BoothOrder, BoothResult, BoothRound, BoothTick
 from .views import latest_result, live_ranking
 
@@ -51,19 +52,26 @@ def publish_event(
     )
 
 
-def ghost_schedule(seed: str, number: int) -> list[int]:
+def ghost_schedule(seed: str, number: int, interval: int = TICK_SECONDS) -> list[int]:
     rng = random.Random(seed)
     count = GHOSTS[number][0]
     while True:
-        ticks = sorted(rng.sample([n for n in range(6, 297) if n != 240], count))
-        if all(b - a >= 9 for a, b in pairwise(ticks)):
+        candidates = [
+            n for n in range(ceil(60 / interval), ceil(2970 / interval)) if n * interval != 2400
+        ]
+        ticks = sorted(rng.sample(candidates, count))
+        if all((b - a) * interval >= 90 for a, b in pairwise(ticks)):
             return ticks
 
 
 def open_round(s: Session, row: BoothRound, *, seed: str | None = None) -> None:
     seed = seed or secrets.token_hex(24)
     row.private = dict(
-        row.private, seed=seed, ghosts=ghost_schedule(seed, row.number), meteor_done=False
+        row.private,
+        seed=seed,
+        tick_seconds=TICK_SECONDS,
+        ghosts=ghost_schedule(seed, row.number),
+        meteor_done=False,
     )
     row.prices, row.version = initial_prices(), 0
     row.state, row.published_at = "open", row.opens_at
@@ -89,7 +97,7 @@ def event_rates(
     sector: str | None = None
     rates: dict[str, float] = {}
     kind, headline = "", ""
-    if row.number == 3 and tick >= 240 and not data.get("meteor_done"):
+    if row.number == 3 and tick * tick_seconds(data) >= 2400 and not data.get("meteor_done"):
         success = rng.random() < 0.5
         rates = {
             c: (0.20 if sector_id == "space" else 0.08)
@@ -131,7 +139,8 @@ def event_rates(
 
 
 def tick(s: Session, row: BoothRound, number: int) -> None:
-    now = row.opens_at + timedelta(seconds=number * TICK_SECONDS)
+    elapsed = number * tick_seconds(row.private)
+    now = row.opens_at + timedelta(seconds=elapsed)
     rng = random.Random(f"{row.private['seed']}:{number}")
     buys: dict[str, int] = {}
     sells: dict[str, int] = {}
@@ -167,7 +176,11 @@ def tick(s: Session, row: BoothRound, number: int) -> None:
     )
     s.add(record)
     s.flush()
-    decisions = funds.rebalance(s, row, now) if number % 3 == 0 and now < row.closes_at else {}
+    decisions = (
+        funds.rebalance(s, row, now)
+        if elapsed % FUND_INTERVAL_SECONDS == 0 and now < row.closes_at
+        else {}
+    )
     record.detail = {
         "decisions": decisions,
         "fund_assets": funds.values(s, row),
@@ -213,13 +226,16 @@ def advance(s: Session, row: BoothRound, now: datetime) -> None:
     assert row.published_at is not None
     closing = now >= row.closes_at
     lag = (now - row.published_at).total_seconds()
-    if row.state == "open" and lag >= 30:
+    interval = tick_seconds(row.private)
+    total_ticks = int((row.closes_at - row.opens_at).total_seconds()) // interval
+    if row.state == "open" and lag >= 3 * interval:
         if not closing:
-            row.state, row.paused_reason = "paused", "시세 계산이 30초 이상 지연되었습니다."
+            row.state = "paused"
+            row.paused_reason = f"시세 계산이 {3 * interval}초 이상 지연되었습니다."
             audit(s, now, "system", "booth.pause", round_id=row.number, reason=row.paused_reason)
             return
     elif row.state == "open":
-        target = min(300, int((now - row.opens_at).total_seconds()) // TICK_SECONDS)
+        target = min(total_ticks, int((now - row.opens_at).total_seconds()) // interval)
         for number in range(row.version + 1, target + 1):
             tick(s, row, number)
     if closing:
@@ -259,7 +275,11 @@ def control(s: Session, row: BoothRound, action: str, reason: str, now: datetime
         if row.state != "paused":
             raise DomainError("INVALID_STATE", "정지 중인 장만 재개할 수 있습니다.")
         previous = row.version
-        target = max(previous, min(299, int((now - row.opens_at).total_seconds()) // TICK_SECONDS))
+        interval = tick_seconds(row.private)
+        total_ticks = int((row.closes_at - row.opens_at).total_seconds()) // interval
+        target = max(
+            previous, min(total_ticks - 1, int((now - row.opens_at).total_seconds()) // interval)
+        )
         if target > previous:
             s.add(
                 BoothTick(

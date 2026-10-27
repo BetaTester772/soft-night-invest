@@ -25,6 +25,7 @@ from .domain import (
     fund_value,
     initial_prices,
     sessions,
+    tick_seconds,
 )
 from .models import BoothAccount, BoothOrder, BoothParticipant, BoothRound, BoothToken
 
@@ -139,7 +140,9 @@ def assert_open(row: BoothRound, now: datetime) -> None:
     spec = active_session(now, row.day)
     if row.state != "open" or spec is None or spec.number != row.number:
         raise DomainError("MARKET_CLOSED", "지금은 이 장의 거래 시간이 아닙니다.")
-    if row.published_at is None or (now - row.published_at).total_seconds() >= 30:
+    if row.published_at is None or (now - row.published_at).total_seconds() >= 3 * tick_seconds(
+        row.private
+    ):
         raise DomainError("STALE_PRICE", "시세 갱신이 지연되어 거래를 잠시 멈췄습니다.")
 
 

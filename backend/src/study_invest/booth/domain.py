@@ -1,8 +1,10 @@
 """Booth constants and pure financial/strategy calculations."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from fractions import Fraction
+from typing import Any
 
 from ..event_calendar import to_kst
 from ..instruments import Instrument, InstrumentKind
@@ -12,7 +14,15 @@ from ..services.common import DomainError
 MICRO = 1_000_000
 UNIT_DENOMINATOR = 1_000 * MICRO
 EVENT_DAY = date(2026, 10, 30)
-TICK_SECONDS = 10
+TICK_SECONDS = 30
+FUND_INTERVAL_SECONDS = 30
+
+
+def tick_seconds(config: Mapping[str, Any]) -> int:
+    """Keep an already-open session's cadence so its stored versions stay valid."""
+    return int(config.get("tick_seconds", 10 if config.get("seed") else TICK_SECONDS))
+
+
 FUNDS = {
     "HERB": {
         "name": "초식이의 분산 펀드",

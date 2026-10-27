@@ -181,9 +181,13 @@ export function AdminView({ config }: { config: BoothConfig }) {
             <div className={styles.actions}>
               <Button
                 disabled={busy}
-                onClick={() => void action("qa/step", { seconds: 10 })}
+                onClick={() =>
+                  void action("qa/step", {
+                    seconds: selected?.update_interval_seconds ?? 30,
+                  })
+                }
               >
-                QA 10초 진행
+                QA {selected?.update_interval_seconds ?? 30}초 진행
               </Button>
               <Button disabled={busy} onClick={() => void action("qa/next")}>
                 QA 다음 장 개장

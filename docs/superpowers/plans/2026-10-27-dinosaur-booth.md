@@ -10,7 +10,7 @@
 ## Global Constraints
 - 2026-10-30 KST 16:00–16:50, 17:00–17:50, 19:30–20:20; 개장 포함·마감 제외.
 - 장별 시드 1,000,000원과 6개 주식 초기화. 펀드 기준가 1,000원 초기화.
-- 가격 10초·운용 30초·화면 조회 2초. 첫 60초·마지막 30초 사건 없음.
+- 가격 30초·운용 30초·화면 조회 2초. 첫 60초·마지막 30초 사건 없음.
 - 좌수 소수점 6자리·매수 금액 올림·환매 금액 내림. 정수/유리수 계산.
 - 규칙 기반 자동 운용. 실제 AI 호출과 예시 데이터 제품 삽입 금지.
 - 기존 데이터 삭제·push·merge·공개 배포 제외.
@@ -41,7 +41,7 @@ Interfaces: /api/booth/config, /state?round_id, /join, /enroll, /orders, /logout
 ## Task 3: 시세·펀드·사건·마감·관리 API
 Files: booth/market.py, funds.py, admin.py, simulation.py; api/app.py, config.py; tests/test_booth_market.py.
 Interfaces: run_due(factory,now,day), advance(session,round,now); admin status/control/news/incident/disqualify/recover/confirm.
-- [x] 먼저 테스트: 구간 중복 방지·30초 운용·공개 가격만 입력·섹터 충격·운석 1회·30초 지연 정지·누락 생략·마감 불변·결과 수정 버전.
+- [x] 먼저 테스트: 구간 중복 방지·30초 운용·공개 가격만 입력·섹터 충격·운석 1회·90초 지연 정지·누락 생략·마감 불변·결과 수정 버전.
 - [x] 실패 확인 후 스케줄러와 관리자 운영 API 구현. 비공개 구간 seed/사건 계획을 공개 응답에서 제외.
 - [x] 전체 backend pytest·ruff·mypy 실행.
 

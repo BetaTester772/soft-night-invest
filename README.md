@@ -8,7 +8,7 @@
 | 2장 | 17:00–17:50 | 쥐라기 |
 | 3장 | 19:30–20:20 | 백악기 |
 
-장마다 현금 100만원, 종목 가격, 펀드 기준가를 초기화한다. 이전 장의 결과는 보존한다. 가격은 10초, 펀드 운용은 30초, 화면 조회는 2초 간격이다. 30초 이상 가격 갱신이 지연되면 거래를 중단하고 운영자가 재개한다.
+장마다 현금 100만원, 종목 가격, 펀드 기준가를 초기화한다. 이전 장의 결과는 보존한다. 가격과 펀드 운용은 30초, 화면 조회는 2초 간격이다. 90초(3회 갱신 주기) 이상 가격 갱신이 지연되면 거래를 중단하고 운영자가 재개한다.
 
 닉네임으로 참가하며 직접 주식과 펀드를 함께 보유할 수 있다. 펀드는 공통 모델 포트폴리오의 기준가에 연동된다. 외부 AI 모델은 호출하지 않는다. 실제 금전 거래는 없다.
 
@@ -45,7 +45,7 @@ docker compose up --build
 - pgAdmin: http://localhost:5050 (이 PC에서만). 서버 "study_invest (pgAdmin 풀)"이 등록되어 있고, 비밀번호는 `.env`의 `PGADMIN_DB_PASSWORD`
 - DB 연결은 PgBouncer를 거친다: api 풀 20, batch 풀 2, pgAdmin 풀 5. [docs/dev/db-pools.md](docs/dev/db-pools.md)
 - API: http://localhost:8080/api (백엔드 직접 접근은 http://localhost:8000, 문서는 `/docs`)
-- 백엔드 컨테이너는 시작할 때 `alembic upgrade head`를 실행하고, `STUDY_INVEST_SCHEDULER=1`이면 booth 모드에서 장 개장·10초 가격 갱신·마감을 자동 운영한다. study 모드에서는 기존 09:00 공시·18:00 정산을 실행한다.
+- 백엔드 컨테이너는 시작할 때 `alembic upgrade head`를 실행하고, `STUDY_INVEST_SCHEDULER=1`이면 booth 모드에서 장 개장·30초 가격 갱신·마감을 자동 운영한다. study 모드에서는 기존 09:00 공시·18:00 정산을 실행한다.
 
 ## CI · 의존성 업데이트
 
@@ -72,7 +72,7 @@ docker compose up --build
 
 관리자 /admin에서 장 상태와 지연을 확인하고 일시 정지·재개, 속보/섹터 사건 예약, 참가자 실격/현장 복구, 시상 결과 확정을 처리한다. 최종 결과는 장 마감 후 생성되며 운영자가 최신 버전을 확정해야 부스 화면에 시상자가 표시된다. 닉네임만으로 현실의 중복 참가를 완벽하게 막지는 않으므로 현장 확인 후 장별 실격 처리한다.
 
-QA는 STUDY_INVEST_QA_TOOLS=1에서만 사용할 수 있다. 관리자 화면의 다음 장 개장·10초 진행으로 테스트한다. TIME_ORIGIN과 TIME_SCALE을 지정하면 BOOTH_CLOCK_START(기본 15:59:50)부터 가속된다. 실제 행사에서는 QA_TOOLS=0과 실제 시계를 사용한다. 개발 서버도 자동 가격 갱신에는 STUDY_INVEST_SCHEDULER=1이 필요하다.
+QA는 STUDY_INVEST_QA_TOOLS=1에서만 사용할 수 있다. 관리자 화면의 다음 장 개장·30초 진행으로 테스트한다. TIME_ORIGIN과 TIME_SCALE을 지정하면 BOOTH_CLOCK_START(기본 15:59:50)부터 가속된다. 실제 행사에서는 QA_TOOLS=0과 실제 시계를 사용한다. 개발 서버도 자동 가격 갱신에는 STUDY_INVEST_SCHEDULER=1이 필요하다.
 
 전체 장 시뮬레이션은 backend에서 .venv/bin/python -m study_invest.booth.simulation --paths 25 --seed 42로 실행한다. 매 경로는 별도 메모리 DB를 사용해 실제 운영 DB를 읽거나 바꾸지 않는다.
 
