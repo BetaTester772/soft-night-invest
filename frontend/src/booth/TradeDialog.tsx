@@ -74,11 +74,17 @@ export function TradeDialog({
           : { units: amount }),
     };
     const signature = JSON.stringify(body);
-    if (request.current?.signature !== signature)
-      request.current = { signature, id: crypto.randomUUID() };
     setBusy(true);
     setError("");
     try {
+      if (request.current?.signature !== signature) {
+        const id =
+          crypto.randomUUID?.() ??
+          Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
+            byte.toString(16).padStart(2, "0"),
+          ).join("");
+        request.current = { signature, id };
+      }
       await boothApi.order(
         { ...body, request_id: request.current.id },
         intendedToken.current,

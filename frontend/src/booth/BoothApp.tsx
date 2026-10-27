@@ -80,10 +80,10 @@ function BoothShell({ config }: { config: BoothConfig }) {
   const data = state.data;
   const currentRound = useRef(data?.round.id);
   currentRound.current = data?.round.id;
-  function activateSession(next: string | null) {
+  function activateSession(next: string | null, persist = true) {
     sessionGeneration.current += 1;
     tokenRef.current = next;
-    boothTokenStore.set(next);
+    if (persist) boothTokenStore.set(next);
     setToken(next);
     setTarget(null);
     setJoinOpen(false);
@@ -92,7 +92,7 @@ function BoothShell({ config }: { config: BoothConfig }) {
   }
   function syncSession() {
     const latest = boothTokenStore.get();
-    if (latest !== tokenRef.current) activateSession(latest);
+    if (latest !== tokenRef.current) activateSession(latest, false);
   }
   function isCurrent(generation: number, expected: string | null) {
     return (
@@ -106,7 +106,7 @@ function BoothShell({ config }: { config: BoothConfig }) {
       if (event.storageArea && event.storageArea !== window.localStorage)
         return;
       if (event.key === "dino.booth.token" || event.key === null)
-        activateSession(event.key === null ? null : event.newValue);
+        syncSession();
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
@@ -288,7 +288,7 @@ function BoothShell({ config }: { config: BoothConfig }) {
         )}
         {admin ? (
           <AdminView config={config} />
-        ) : state.error ? (
+        ) : state.error && !data ? (
           <div className={styles.empty}>
             <h1>거래소에 연결하지 못했습니다.</h1>
             <p>{state.error.message}</p>
@@ -298,6 +298,12 @@ function BoothShell({ config }: { config: BoothConfig }) {
           <Skeleton lines={8} />
         ) : (
           <>
+            {state.error && (
+              <div role="alert" className={styles.errorBanner}>
+                조회에 실패해 마지막 갱신 정보를 표시하고 있습니다. {state.error.message}
+                <Button onClick={state.refetch}>다시 연결하기</Button>
+              </div>
+            )}
             <div className={styles.timeline} aria-label="장 일정">
               {data.rounds.map((r) => (
                 <button

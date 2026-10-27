@@ -23,6 +23,8 @@ function write(storage: () => Storage, key: string, value: string | null): void 
 let memoryToken: string | null = null;
 let memoryAdminKey: string | null = null;
 let memoryBoothToken: string | null = null;
+let boothLastStored: string | null = null;
+let boothPersisted = true;
 
 export const tokenStore = {
   get(): string | null {
@@ -36,11 +38,34 @@ export const tokenStore = {
 
 export const boothTokenStore = {
   get(): string | null {
-    return read(() => window.localStorage, 'dino.booth.token') ?? memoryBoothToken;
+    try {
+      const stored = window.localStorage.getItem('dino.booth.token');
+      // Keep a failed write in memory until shared storage changes independently.
+      if (boothPersisted || stored !== boothLastStored) {
+        memoryBoothToken = stored;
+        boothLastStored = stored;
+        boothPersisted = true;
+      }
+    } catch {
+      /* storage unavailable — retain this tab's in-memory session */
+    }
+    return memoryBoothToken;
   },
   set(token: string | null): void {
     memoryBoothToken = token;
-    write(() => window.localStorage, 'dino.booth.token', token);
+    try {
+      boothLastStored = window.localStorage.getItem('dino.booth.token');
+    } catch {
+      /* retain the last readable shared value */
+    }
+    try {
+      if (token === null) window.localStorage.removeItem('dino.booth.token');
+      else window.localStorage.setItem('dino.booth.token', token);
+      boothLastStored = token;
+      boothPersisted = true;
+    } catch {
+      boothPersisted = false;
+    }
   },
 };
 

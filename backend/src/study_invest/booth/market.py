@@ -113,12 +113,6 @@ def event_rates(
             else "운석 요격 실패… 공룡 증시 대폭락"
         )
         data["meteor_done"] = True
-    elif data.get("pending"):
-        pending = list(data["pending"])
-        event = pending.pop(0)
-        data["pending"] = pending
-        sector, rates = event.get("sector"), event.get("rates", {})
-        kind, headline = event["kind"], event["headline"]
     elif tick in data.get("ghosts", []):
         sector = rng.choice(list(SECTORS))
         _, lo, hi = GHOSTS[row.number]
@@ -128,10 +122,27 @@ def event_rates(
         headline = f"공룡 귀신 출몰! {SECTORS[sector]['name']} 섹터 " + (
             "급등" if rate > 0 else "급락"
         )
-    row.private = data
     if headline:
         publish_event(s, row, tick, now, kind=kind, headline=headline, sector=sector, rates=rates)
     effects = {c: Fraction(str(rate)) for c, rate in rates.items()}
+    if data.get("pending"):
+        pending = list(data["pending"])
+        event = pending.pop(0)
+        data["pending"] = pending
+        queued_rates = event.get("rates", {})
+        publish_event(
+            s,
+            row,
+            tick,
+            now,
+            kind=event["kind"],
+            headline=event["headline"],
+            sector=event.get("sector"),
+            rates=queued_rates,
+        )
+        for code, rate in queued_rates.items():
+            effects[code] = (1 + effects.get(code, Fraction(0))) * (1 + Fraction(str(rate))) - 1
+    row.private = data
     if row.number == 2:
         for code in SECTORS["feed"]["codes"]:
             effects[code] = (1 + effects.get(code, Fraction(0))) * Fraction(10001, 10000) - 1
