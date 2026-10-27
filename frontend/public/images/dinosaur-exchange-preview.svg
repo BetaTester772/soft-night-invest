@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+<rect width="1200" height="630" fill="#101813"/><rect x="64" y="64" width="1072" height="502" rx="20" fill="#19221b" stroke="#344037"/>
+<rect x="110" y="113" width="60" height="60" rx="16" fill="#c8e59c"/><g transform="translate(123 126) scale(1.12)" fill="#101813"><path d="M6 22v-7H3l-2-4 5 1 3-5h6l2-4h10v9h-7v4h-4v6h-3v5h-3v-5z"/><circle cx="23" cy="6" r="1" fill="#c8e59c"/></g>
+<g font-family="Apple SD Gothic Neo, Noto Sans CJK KR, sans-serif"><text x="191" y="151" fill="#a0b0a2" font-size="24">2026 소프트의 밤 · 공룡 귀신의 거래소</text>
+<text x="108" y="267" fill="#f2f0e6" font-size="60" font-weight="700">난 운석이 떨어진 줄 알았지</text><text x="111" y="322" fill="#a0b0a2" font-size="25">직접 매매와 규칙 기반 펀드로 세 시대의 증시에서 살아남기</text>
+<g fill="#c8e59c" font-size="21"><text x="111" y="485">트라이아스기</text><text x="327" y="485">쥐라기</text><text x="510" y="485">백악기</text></g><text x="111" y="524" fill="#a0b0a2" font-size="18">10월 30일 16:00 시작 · 가상 시드 100만원 · 실제 금전 거래 없음</text></g>
+<path d="M770 479l38-28 23 15 30-53 35 17 35-67 30 24 33-77 39 19 37-90" stroke="#ffb36b" fill="none" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M770 505h300M770 437h300M770 369h300" stroke="#344037" stroke-dasharray="5 8"/>
+</svg>

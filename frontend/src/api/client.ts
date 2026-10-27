@@ -1,4 +1,4 @@
-import { adminKeyStore, tokenStore } from './storage';
+import { adminKeyStore, boothTokenStore, tokenStore } from './storage';
 import type { ApiErrorBody } from './types';
 
 export const API_BASE = '/api';
@@ -18,7 +18,7 @@ export class ApiError extends Error {
   }
 }
 
-export type AuthMode = 'none' | 'participant' | 'optional' | 'admin';
+export type AuthMode = 'none' | 'participant' | 'optional' | 'admin' | 'booth';
 
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -92,13 +92,14 @@ function buildUrl(path: string, query?: RequestOptions['query']): string {
 function credentialFor(auth: AuthMode): string | null {
   if (auth === 'participant' || auth === 'optional') return tokenStore.get();
   if (auth === 'admin') return adminKeyStore.get();
+  if (auth === 'booth') return boothTokenStore.get();
   return null;
 }
 
 export function authHeaders(auth: AuthMode, credential: string | null = credentialFor(auth)): Record<string, string> {
   const headers: Record<string, string> = {};
   if (!credential) return headers;
-  if (auth === 'participant' || auth === 'optional') headers.Authorization = `Bearer ${credential}`;
+  if (auth === 'participant' || auth === 'optional' || auth === 'booth') headers.Authorization = `Bearer ${credential}`;
   else if (auth === 'admin') headers['X-Admin-Key'] = credential;
   return headers;
 }

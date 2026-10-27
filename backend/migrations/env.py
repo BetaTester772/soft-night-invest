@@ -8,6 +8,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from study_invest import models  # noqa: F401  모델 등록
+from study_invest.booth import models as booth_models  # noqa: F401
 from study_invest.config import Settings
 from study_invest.db import Base
 

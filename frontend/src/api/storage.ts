@@ -22,6 +22,7 @@ function write(storage: () => Storage, key: string, value: string | null): void 
 
 let memoryToken: string | null = null;
 let memoryAdminKey: string | null = null;
+let memoryBoothToken: string | null = null;
 
 export const tokenStore = {
   get(): string | null {
@@ -30,6 +31,16 @@ export const tokenStore = {
   set(token: string | null): void {
     memoryToken = token;
     write(() => window.localStorage, TOKEN_KEY, token);
+  },
+};
+
+export const boothTokenStore = {
+  get(): string | null {
+    return read(() => window.localStorage, 'dino.booth.token') ?? memoryBoothToken;
+  },
+  set(token: string | null): void {
+    memoryBoothToken = token;
+    write(() => window.localStorage, 'dino.booth.token', token);
   },
 };
 

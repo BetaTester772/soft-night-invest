@@ -987,6 +987,7 @@ class TestNoConnectionHeldDuringSend:
                 upload_dir=tmp_path / "uploads",
                 auto_create_schema=True,
             ),
+            clock=Clock(kst(date(2026, 10, 6))),
             mailer=mailer,
         )
         with TestClient(app) as c:
