@@ -18,6 +18,7 @@ export function AdminView({ config }: { config: BoothConfig }) {
   const [key, setKey] = useState("");
   const [roundId, setRoundId] = useState(1);
   const [participant, setParticipant] = useState("");
+  const [cashAmount, setCashAmount] = useState("1000000");
   const [reason, setReason] = useState("");
   const [headline, setHeadline] = useState("");
   const [sector, setSector] = useState("feed");
@@ -283,6 +284,20 @@ export function AdminView({ config }: { config: BoothConfig }) {
               {t("현장 확인 후 계좌 복구")}
             </Button>
           </div>
+          {config.qa_tools && (
+            <div className={styles.form}>
+              <h3>{t("테스트 머니 지급")}</h3>
+              <TextField label={t("지급 금액 (원)")} type="number" min={1} max={100000000}
+                step={1} value={cashAmount} onChange={(e) => setCashAmount(e.target.value)} />
+              <p className={styles.muted}>{t("테스트 머니를 받은 계좌는 이 장의 랭킹·시상에서 제외됩니다. 장별 한도 1억원.")}</p>
+              <Button disabled={busy || !participant || !reason.trim() ||
+                !Number.isSafeInteger(Number(cashAmount)) || Number(cashAmount) < 1 || Number(cashAmount) > 100000000 || selected?.state === "closed"}
+                onClick={() => void action("qa/cash", { round_id: roundId,
+                  participant_id: Number(participant), amount: Number(cashAmount), reason })}>
+                {t("테스트 머니 지급하기")}
+              </Button>
+            </div>
+          )}
           {recovered && (
             <label>{t("새 복구 토큰")}{" "}<textarea value={recovered} readOnly rows={3} />
               <small>{t("이 토큰을 본인에게 전달하세요. 이전 기기의 토큰은 폐기되었습니다.")}</small>

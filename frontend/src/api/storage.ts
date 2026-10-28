@@ -69,6 +69,28 @@ export const boothTokenStore = {
   },
 };
 
+/** Shared association prevents other tabs' linked tokens from triggering reissuance. */
+export interface BoothIdentity { identity: string; booth: string }
+let memoryBoothIdentity: BoothIdentity | null = null;
+export const boothIdentityStore = {
+  get(): BoothIdentity | null {
+    try {
+      const raw = window.localStorage.getItem('dino.booth.identity');
+      const value: unknown = raw ? JSON.parse(raw) : null;
+      if (value && typeof value === 'object' && 'identity' in value && 'booth' in value &&
+          typeof value.identity === 'string' && typeof value.booth === 'string')
+        return { identity: value.identity, booth: value.booth };
+      return null;
+    } catch {
+      return memoryBoothIdentity;
+    }
+  },
+  set(value: BoothIdentity): void {
+    memoryBoothIdentity = value;
+    write(() => window.localStorage, 'dino.booth.identity', JSON.stringify(value));
+  },
+};
+
 export const adminKeyStore = {
   get(): string | null {
     return read(() => window.sessionStorage, ADMIN_KEY) ?? memoryAdminKey;

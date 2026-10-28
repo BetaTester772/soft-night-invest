@@ -13,6 +13,9 @@ from ..models import AwareDateTime
 class BoothParticipant(Base):
     __tablename__ = "booth_participants"
     id: Mapped[int] = mapped_column(primary_key=True)
+    study_participant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("participants.id"), unique=True
+    )
     nickname: Mapped[str] = mapped_column(String(32), unique=True)
     joined_at: Mapped[datetime] = mapped_column(AwareDateTime())
 
@@ -48,6 +51,7 @@ class BoothAccount(Base):
         ForeignKey("booth_participants.id"), index=True
     )
     fund_code: Mapped[str | None] = mapped_column(String(16))
+    qa_cash: Mapped[int] = mapped_column(BigInteger, default=0, server_default="0")
     cash: Mapped[int] = mapped_column(BigInteger)
     stocks: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     funds: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)

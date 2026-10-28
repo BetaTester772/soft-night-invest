@@ -16,6 +16,7 @@ export const boothApi = {
       query: { round_id: roundId },
       credential,
     }),
+  session: (credential: string) => request<{ token: string }>("/booth/session", { method: "POST", auth: "participant", credential }),
   join: (nickname: string) =>
     request<{ token: string; participant: { id: number; nickname: string } }>(
       "/booth/join",

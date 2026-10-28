@@ -1,7 +1,8 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { boothIdentityStore, boothTokenStore, tokenStore } from "../../api/storage";
 import { BoothApp } from "../BoothApp";
 import { boothState, config } from "./fixtures";
 
@@ -9,6 +10,8 @@ let data = boothState();
 let rejection = false;
 beforeEach(() => {
   localStorage.clear();
+  tokenStore.set(null);
+  boothTokenStore.set(null);
   data = boothState();
   rejection = false;
   vi.stubGlobal(
@@ -128,4 +131,85 @@ it("disables stock orders during a break", async () => {
   expect(
     await screen.findByRole("button", { name: "주식 매매" }),
   ).toBeDisabled();
+});
+
+it.each([null, "nickname-only"])("connects an explicit login to its own booth account with previous token %s", async (previousToken) => {
+  boothTokenStore.set(previousToken);
+  data = boothState(false);
+  const participant = { id: 42, nickname: "김공룡", status: "normal" };
+  const fetcher = vi.fn(async (input: string, init?: RequestInit) => {
+    if (input.includes("/auth/login")) {
+      expect(JSON.parse(String(init?.body))).toEqual({ identity: "2026310000", password: "password" });
+      return new Response(JSON.stringify({ token: "study-login", participant }));
+    }
+    if (input.includes("/booth/session")) {
+      expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer study-login");
+      data = boothState();
+      return new Response(JSON.stringify({ token: "linked-booth" }));
+    }
+    if (input.includes("/event")) return new Response(JSON.stringify({ signup: {} }));
+    if (input.endsWith("/me")) return new Response(JSON.stringify(participant));
+    return new Response(JSON.stringify(data));
+  });
+  vi.stubGlobal("fetch", fetcher);
+  page("/login");
+  const user = userEvent.setup();
+  await user.type(await screen.findByRole("textbox", { name: "학번" }), "2026310000");
+  await user.type(screen.getByLabelText(/비밀번호/), "password");
+  await user.click(screen.getByRole("button", { name: "로그인하기" }));
+  await waitFor(() => expect(localStorage.getItem("dino.booth.token")).toBe("linked-booth"));
+  expect(await screen.findByText("김공룡 님")).toBeInTheDocument();
+});
+
+
+it("resolves the authenticated identity when both credentials are already stored", async () => {
+  tokenStore.set("stored-identity");
+  boothTokenStore.set("nickname-only");
+  const fetcher = vi.fn(async (input: string, init?: RequestInit) => {
+    if (input.includes("/booth/session")) {
+      expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer stored-identity");
+      return new Response(JSON.stringify({ token: "identity-account" }));
+    }
+    if (input.endsWith("/me")) return new Response(JSON.stringify({ id: 42, nickname: "김공룡" }));
+    return new Response(JSON.stringify(boothState()));
+  });
+  vi.stubGlobal("fetch", fetcher);
+  page();
+  await waitFor(() => expect(boothTokenStore.get()).toBe("identity-account"));
+  await waitFor(() => expect(fetcher.mock.calls.some(([url, init]) =>
+    url.includes("/booth/state") && (init?.headers as Record<string, string>).Authorization === "Bearer identity-account"
+  )).toBe(true));
+  expect(fetcher.mock.calls.filter(([url]) => url.includes("/booth/session"))).toHaveLength(1);
+});
+
+
+it("adopts a linked token from another tab without issuing replacement sessions", async () => {
+  tokenStore.set("shared-identity");
+  boothTokenStore.set("nickname-only");
+  let sessions = 0;
+  const fetcher = vi.fn(async (input: string) => {
+    if (input.includes("/booth/session")) {
+      sessions += 1;
+      return new Response(JSON.stringify({ token: `linked-${sessions}` }));
+    }
+    if (input.endsWith("/me")) return new Response(JSON.stringify({ id: 42, nickname: "김공룡" }));
+    return new Response(JSON.stringify(boothState()));
+  });
+  vi.stubGlobal("fetch", fetcher);
+  page();
+  await waitFor(() => expect(boothTokenStore.get()).toBe("linked-1"));
+  // A second tab starts with the shared association and needs no new session.
+  page();
+  await waitFor(() => expect(fetcher.mock.calls.filter(([url]) => url.endsWith("/me"))).toHaveLength(2));
+  expect(sessions, "after second tab mount").toBe(1);
+  for (const next of ["other-tab-token-A", "other-tab-token-B"]) {
+    await act(async () => {
+      boothIdentityStore.set({ identity: "shared-identity", booth: next });
+      boothTokenStore.set(next);
+      window.dispatchEvent(new StorageEvent("storage", { key: "dino.booth.token", newValue: next }));
+    });
+    expect(boothTokenStore.get()).toBe(next);
+    expect(sessions, next).toBe(1);
+  }
+  expect(sessions).toBe(1);
 });

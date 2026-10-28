@@ -1,8 +1,12 @@
 import { t, useLanguage, useDocumentLanguage } from "../i18n";
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { AuthProvider, useAuth } from "../auth/AuthContext";
+import { LoginPage } from "../pages/Auth/LoginPage";
+import { RegisterPage } from "../pages/Auth/RegisterPage";
+import { ResetPasswordPage } from "../pages/Auth/ResetPasswordPage";
 import { onUnauthorized } from "../api/client";
-import { boothTokenStore } from "../api/storage";
+import { boothIdentityStore, boothTokenStore, tokenStore } from "../api/storage";
 import { useApi } from "../api/useApi";
 import {
   Button,
@@ -62,10 +66,14 @@ function Countdown({
 }
 function BoothShell({ config }: { config: BoothConfig }) {
   useLanguage();
+  const auth = useAuth();
   const location = useLocation();
   const broadcast = location.pathname === "/broadcast";
   const admin = location.pathname === "/admin";
+  const [linkAttempt, setLinkAttempt] = useState(0);
   const [token, setToken] = useState(() => boothTokenStore.get());
+  const linkedSession = useRef<{ identity: string; booth: string } | null>(null);
+  const identityToken = tokenStore.get();
   const sessionGeneration = useRef(0);
   const tokenRef = useRef(token);
   const [selected, setSelected] = useState<number>();
@@ -95,6 +103,33 @@ function BoothShell({ config }: { config: BoothConfig }) {
     setJoinBusy(false);
     setError("");
   }
+  useEffect(() => {
+    if (auth.status !== "authenticated" || !identityToken) return;
+    if (token !== boothTokenStore.get()) {
+      syncSession();
+      return;
+    }
+    const shared = boothIdentityStore.get();
+    if (shared?.identity === identityToken && shared.booth === token) {
+      linkedSession.current = shared;
+      return;
+    }
+    if (linkedSession.current?.identity === identityToken && linkedSession.current.booth === token) return;
+    let cancelled = false;
+    const generation = sessionGeneration.current;
+    const expected = tokenRef.current;
+    void boothApi.session(identityToken).then((result) => {
+      if (!cancelled && identityToken === tokenStore.get() && isCurrent(generation, expected)) {
+        linkedSession.current = { identity: identityToken, booth: result.token };
+        // Publish the association before the token's storage event reaches other tabs.
+        boothIdentityStore.set(linkedSession.current);
+        activateSession(result.token);
+      }
+    }).catch((err: unknown) => {
+      if (!cancelled) setError(err instanceof Error ? err.message : "계좌를 연결하지 못했습니다.");
+    });
+    return () => { cancelled = true; };
+  }, [auth.status, identityToken, token, linkAttempt]);
   function syncSession() {
     const latest = boothTokenStore.get();
     if (latest !== tokenRef.current) activateSession(latest, false);
@@ -200,6 +235,7 @@ function BoothShell({ config }: { config: BoothConfig }) {
       return;
     }
     try {
+      if (auth.status === "authenticated") await auth.logout();
       await boothApi.logout(expected);
       if (isCurrent(generation, expected)) activateSession(null);
       else syncSession();
@@ -265,6 +301,8 @@ function BoothShell({ config }: { config: BoothConfig }) {
                   <button className={styles.logout} onClick={logout}>{t("나가기")}</button>
                 </>
               ) : (
+                <>
+                <Link className={styles.outline} to="/login">{t("로그인")}</Link>
                 <Button
                   size="sm"
                   className={styles.solid}
@@ -272,6 +310,7 @@ function BoothShell({ config }: { config: BoothConfig }) {
                 >
                   {t("참가하기")}
                 </Button>
+                </>
               ))}
           </div>
         </div>
@@ -283,6 +322,10 @@ function BoothShell({ config }: { config: BoothConfig }) {
         {error && !joinOpen && (
           <div role="alert" className={styles.errorBanner}>
             {t(error)}
+            {auth.status === "authenticated" &&
+              (linkedSession.current?.identity !== identityToken || linkedSession.current?.booth !== token) && (
+              <Button onClick={() => setLinkAttempt((value) => value + 1)}>{t("계좌 연결 다시 시도")}</Button>
+            )}
             <button onClick={() => setError("")} aria-label={t("알림 닫기")}>
               ×
             </button>
@@ -393,6 +436,9 @@ function BoothShell({ config }: { config: BoothConfig }) {
               </div>
             )}
             <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route
                 path="/"
                 element={
@@ -530,7 +576,7 @@ export function BoothApp({ config }: { config: BoothConfig }) {
   useDocumentLanguage();
   return (
     <ToastProvider>
-      <BoothShell config={config} />
+      <AuthProvider><BoothShell config={config} /></AuthProvider>
     </ToastProvider>
   );
 }

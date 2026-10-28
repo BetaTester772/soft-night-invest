@@ -1,6 +1,6 @@
 from datetime import date, time
 
-from conftest import ADMIN_KEY, Clock
+from conftest import ADMIN_KEY, Clock, FakeMailer
 from fastapi.testclient import TestClient
 
 DAY = date(2026, 10, 30)
@@ -141,3 +141,112 @@ def test_admin_requires_key_and_recovery_invalidates_old_token(
     assert client.get("/api/booth/state", headers=headers).status_code == 401
     new_headers = {"Authorization": "Bearer " + response.json()["token"]}
     assert client.get("/api/booth/state", headers=new_headers).status_code == 200
+
+
+def test_existing_login_reopens_same_booth_account(client: TestClient, clock: Clock) -> None:
+    from conftest import register
+
+    study_headers = register(client)
+    clock.set(DAY, time(15, 59))
+    assert client.post("/api/booth/session").status_code == 401
+    first = client.post("/api/booth/session", headers=study_headers)
+    assert first.status_code == 200, first.text
+    headers = {"Authorization": "Bearer " + first.json()["token"]}
+    original = client.get("/api/booth/state", headers=headers).json()["me"]
+    assert original["cash"] == 1_000_000
+    assert client.post("/api/booth/logout", headers=headers).status_code == 204
+    second = client.post("/api/booth/session", headers=study_headers)
+    headers = {"Authorization": "Bearer " + second.json()["token"]}
+    reopened = client.get("/api/booth/state", headers=headers).json()["me"]
+    assert reopened["participant_id"] == original["participant_id"]
+    assert reopened["cash"] == original["cash"]
+
+
+def test_qa_cash_requires_admin_and_qa_and_excludes_ranking(
+    client: TestClient, clock: Clock
+) -> None:
+    from dataclasses import replace
+
+    boot(client, clock)
+    headers = join(client)
+    person = client.get("/api/booth/state", headers=headers).json()["me"]
+    body = dict(round_id=1, participant_id=person["participant_id"], amount=1_000_000, reason="QA")
+    url = "/api/booth/admin/qa/cash"
+    assert client.post(url, json=body).status_code == 401
+    assert client.post(url, json=body, headers=ADMIN).status_code == 404
+    app_state = client.app.state.study_invest  # type: ignore[attr-defined]
+    app_state.settings = replace(app_state.settings, qa_tools=True)
+    assert client.post(url, json=dict(body, amount=-1), headers=ADMIN).status_code == 422
+    assert client.post(url, json=body, headers=ADMIN).status_code == 200
+    state = client.get("/api/booth/state", headers=headers).json()
+    assert state["me"]["cash"] == 2_000_000
+    assert state["ranking"] == []
+    assert client.post(url, json=dict(body, amount=100_000_000), headers=ADMIN).status_code == 409
+    clock.set(DAY, time(16, 50))
+    assert client.post(url, json=body, headers=ADMIN).status_code == 409
+
+
+def test_linked_login_skips_all_occupied_fallback_nicknames(
+    client: TestClient, clock: Clock
+) -> None:
+    from conftest import register
+
+    study_headers = register(client)
+    person_id = client.get("/api/me", headers=study_headers).json()["id"]
+    clock.set(DAY, time(15, 59))
+    occupied = ["alice", f"alice·계정{person_id}", f"alice·계정{person_id}-1"]
+    old_ids = []
+    for name in occupied:
+        headers = join(client, name)
+        old_ids.append(
+            client.get("/api/booth/state", headers=headers).json()["me"]["participant_id"]
+        )
+    response = client.post("/api/booth/session", headers=study_headers)
+    assert response.status_code == 200, response.text
+    headers = {"Authorization": "Bearer " + response.json()["token"]}
+    account = client.get("/api/booth/state", headers=headers).json()["me"]
+    assert account["nickname"] == f"alice·계정{person_id}-2"
+    assert account["participant_id"] not in old_ids
+    response = client.post("/api/booth/session", headers=study_headers)
+    headers = {"Authorization": "Bearer " + response.json()["token"]}
+    assert client.get("/api/booth/state", headers=headers).json()["me"] == account
+
+
+def test_password_reset_revokes_all_linked_booth_tokens(
+    client: TestClient, clock: Clock, mailer: FakeMailer
+) -> None:
+    from conftest import register
+
+    study_headers = register(client)
+    clock.set(DAY, time(16, 0))
+    other_headers = join(client, "unrelated")
+    old_headers = []
+    for _ in range(2):
+        response = client.post("/api/booth/session", headers=study_headers)
+        assert response.status_code == 200, response.text
+        old_headers.append({"Authorization": "Bearer " + response.json()["token"]})
+    old_account = client.get("/api/booth/state", headers=old_headers[0]).json()["me"]
+    response = client.post("/api/auth/password-reset/code", json={"identity": "alice@g.skku.edu"})
+    assert response.status_code == 202, response.text
+    response = client.post(
+        "/api/auth/password-reset",
+        json={
+            "identity": "alice@g.skku.edu",
+            "code": mailer.last_code("alice@g.skku.edu"),
+            "password": "amber-lake-sunset-19",
+        },
+    )
+    assert response.status_code == 200, response.text
+    for headers in old_headers:
+        assert client.get("/api/booth/state", headers=headers).status_code == 401
+        assert (
+            client.post("/api/booth/orders", json=buy_payload(), headers=headers).status_code == 401
+        )
+    assert client.post("/api/booth/session", headers=study_headers).status_code == 401
+    assert client.get("/api/booth/state", headers=other_headers).status_code == 200
+    new_identity = {"Authorization": "Bearer " + response.json()["token"]}
+    linked = client.post("/api/booth/session", headers=new_identity)
+    assert linked.status_code == 200, linked.text
+    new_headers = {"Authorization": "Bearer " + linked.json()["token"]}
+    new_account = client.get("/api/booth/state", headers=new_headers).json()["me"]
+    assert new_account == old_account

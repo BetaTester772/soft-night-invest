@@ -85,7 +85,9 @@ docker compose -f docker-compose.yml -f docker-compose.production.yml up -d --bu
 
 관리자 /admin에서 장 상태와 지연을 확인하고 일시 정지·재개, 속보/섹터 사건 예약, 참가자 실격/현장 복구, 시상 결과 확정을 처리한다. 최종 결과는 장 마감 후 생성되며 운영자가 최신 버전을 확정해야 부스 화면에 시상자가 표시된다. 닉네임만으로 현실의 중복 참가를 완벽하게 막지는 않으므로 현장 확인 후 장별 실격 처리한다.
 
-QA는 STUDY_INVEST_QA_TOOLS=1에서만 사용할 수 있다. 관리자 화면의 다음 장 개장·30초 진행으로 테스트한다. TIME_ORIGIN과 TIME_SCALE을 지정하면 BOOTH_CLOCK_START(기본 15:59:50)부터 가속된다. 실제 행사에서는 QA_TOOLS=0과 실제 시계를 사용한다. 개발 서버도 자동 가격 갱신에는 STUDY_INVEST_SCHEDULER=1이 필요하다.
+기존 학번·학교 메일/비밀번호 로그인은 `/login`에서 사용할 수 있다. 로그인한 기존 계정은 별도 부스 계좌에 연결되며 재로그인해도 같은 계좌를 사용한다. 기존 닉네임 전용 계좌를 같은 닉네임의 로그인 계정에 자동으로 연결하지 않는다.
+
+QA는 STUDY_INVEST_QA_TOOLS=1에서만 사용할 수 있다. 관리자 > 참가자 관리에서 장과 참가자를 선택하고 운영 사유·금액을 입력해 테스트 머니를 지급한다. 장별 누적 한도는 1억원이며 종료된 장에는 지급할 수 없다. 지급받은 계좌는 해당 장의 랭킹·시상에서 제외되고 지급 기록은 감사 로그에 남는다. 배포 시 `alembic upgrade head`로 0013 마이그레이션을 적용한다. 관리자 화면의 다음 장 개장·30초 진행으로 테스트한다. TIME_ORIGIN과 TIME_SCALE을 지정하면 BOOTH_CLOCK_START(기본 15:59:50)부터 가속된다. 실제 행사에서는 QA_TOOLS=0과 실제 시계를 사용한다. 개발 서버도 자동 가격 갱신에는 STUDY_INVEST_SCHEDULER=1이 필요하다.
 
 전체 장 시뮬레이션은 backend에서 .venv/bin/python -m study_invest.booth.simulation --paths 25 --seed 42로 실행한다. 매 경로는 별도 메모리 DB를 사용해 실제 운영 DB를 읽거나 바꾸지 않는다.
 

@@ -14,6 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from zxcvbn import zxcvbn  # type: ignore[import-untyped]
 
+from ..booth.models import BoothParticipant, BoothToken
 from ..event_calendar import EventCalendar, to_kst
 from ..models import AuthSession, Participant, VerifyMethod
 from ..normalize import (
@@ -69,7 +70,7 @@ def issue_token(s: Session, participant: Participant, now: datetime) -> str:
 
 
 def participant_by_token(s: Session, token: str) -> Participant | None:
-    session = s.get(AuthSession, _token_hash(token))
+    session = s.get(AuthSession, _token_hash(token), populate_existing=True)
     return s.get(Participant, session.participant_id) if session else None
 
 
@@ -374,5 +375,9 @@ def reset_password(
     # 아래 DELETE가 그 로그인의 토큰까지 지운다(login 참고).
     s.flush()
     s.execute(delete(AuthSession).where(AuthSession.participant_id == participant.id))
+    linked_ids = select(BoothParticipant.id).where(
+        BoothParticipant.study_participant_id == participant.id
+    )
+    s.execute(delete(BoothToken).where(BoothToken.participant_id.in_(linked_ids)))
     audit(s, now, f"participant:{participant.id}", "participant.reset_password")
     return participant, issue_token(s, participant, now)
