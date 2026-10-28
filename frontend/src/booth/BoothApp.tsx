@@ -6,7 +6,7 @@ import { LoginPage } from "../pages/Auth/LoginPage";
 import { RegisterPage } from "../pages/Auth/RegisterPage";
 import { ResetPasswordPage } from "../pages/Auth/ResetPasswordPage";
 import { onUnauthorized } from "../api/client";
-import { boothTokenStore } from "../api/storage";
+import { boothTokenStore, tokenStore } from "../api/storage";
 import { useApi } from "../api/useApi";
 import {
   Button,
@@ -72,6 +72,8 @@ function BoothShell({ config }: { config: BoothConfig }) {
   const admin = location.pathname === "/admin";
   const [linkAttempt, setLinkAttempt] = useState(0);
   const [token, setToken] = useState(() => boothTokenStore.get());
+  const linkedSession = useRef<{ identity: string; booth: string } | null>(null);
+  const identityToken = tokenStore.get();
   const sessionGeneration = useRef(0);
   const tokenRef = useRef(token);
   const [selected, setSelected] = useState<number>();
@@ -102,17 +104,21 @@ function BoothShell({ config }: { config: BoothConfig }) {
     setError("");
   }
   useEffect(() => {
-    if (auth.status !== "authenticated" || token) return;
+    if (auth.status !== "authenticated" || !identityToken) return;
+    if (linkedSession.current?.identity === identityToken && linkedSession.current.booth === token) return;
     let cancelled = false;
     const generation = sessionGeneration.current;
     const expected = tokenRef.current;
-    void boothApi.session().then((result) => {
-      if (!cancelled && isCurrent(generation, expected)) activateSession(result.token);
+    void boothApi.session(identityToken).then((result) => {
+      if (!cancelled && identityToken === tokenStore.get() && isCurrent(generation, expected)) {
+        linkedSession.current = { identity: identityToken, booth: result.token };
+        activateSession(result.token);
+      }
     }).catch((err: unknown) => {
       if (!cancelled) setError(err instanceof Error ? err.message : "계좌를 연결하지 못했습니다.");
     });
     return () => { cancelled = true; };
-  }, [auth.status, token, linkAttempt]);
+  }, [auth.status, identityToken, token, linkAttempt]);
   function syncSession() {
     const latest = boothTokenStore.get();
     if (latest !== tokenRef.current) activateSession(latest, false);
@@ -305,7 +311,8 @@ function BoothShell({ config }: { config: BoothConfig }) {
         {error && !joinOpen && (
           <div role="alert" className={styles.errorBanner}>
             {t(error)}
-            {auth.status === "authenticated" && !token && (
+            {auth.status === "authenticated" &&
+              (linkedSession.current?.identity !== identityToken || linkedSession.current?.booth !== token) && (
               <Button onClick={() => setLinkAttempt((value) => value + 1)}>{t("계좌 연결 다시 시도")}</Button>
             )}
             <button onClick={() => setError("")} aria-label={t("알림 닫기")}>

@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { boothTokenStore, tokenStore } from "../../api/storage";
 import { BoothApp } from "../BoothApp";
 import { boothState, config } from "./fixtures";
 
@@ -9,6 +10,8 @@ let data = boothState();
 let rejection = false;
 beforeEach(() => {
   localStorage.clear();
+  tokenStore.set(null);
+  boothTokenStore.set(null);
   data = boothState();
   rejection = false;
   vi.stubGlobal(
@@ -130,7 +133,8 @@ it("disables stock orders during a break", async () => {
   ).toBeDisabled();
 });
 
-it("restores the existing login form and connects its identity to a booth account", async () => {
+it.each([null, "nickname-only"])("connects an explicit login to its own booth account with previous token %s", async (previousToken) => {
+  boothTokenStore.set(previousToken);
   data = boothState(false);
   const participant = { id: 42, nickname: "김공룡", status: "normal" };
   const fetcher = vi.fn(async (input: string, init?: RequestInit) => {
@@ -155,4 +159,25 @@ it("restores the existing login form and connects its identity to a booth accoun
   await user.click(screen.getByRole("button", { name: "로그인하기" }));
   await waitFor(() => expect(localStorage.getItem("dino.booth.token")).toBe("linked-booth"));
   expect(await screen.findByText("김공룡 님")).toBeInTheDocument();
+});
+
+
+it("resolves the authenticated identity when both credentials are already stored", async () => {
+  tokenStore.set("stored-identity");
+  boothTokenStore.set("nickname-only");
+  const fetcher = vi.fn(async (input: string, init?: RequestInit) => {
+    if (input.includes("/booth/session")) {
+      expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer stored-identity");
+      return new Response(JSON.stringify({ token: "identity-account" }));
+    }
+    if (input.endsWith("/me")) return new Response(JSON.stringify({ id: 42, nickname: "김공룡" }));
+    return new Response(JSON.stringify(boothState()));
+  });
+  vi.stubGlobal("fetch", fetcher);
+  page();
+  await waitFor(() => expect(boothTokenStore.get()).toBe("identity-account"));
+  await waitFor(() => expect(fetcher.mock.calls.some(([url, init]) =>
+    url.includes("/booth/state") && (init?.headers as Record<string, string>).Authorization === "Bearer identity-account"
+  )).toBe(true));
+  expect(fetcher.mock.calls.filter(([url]) => url.includes("/booth/session"))).toHaveLength(1);
 });

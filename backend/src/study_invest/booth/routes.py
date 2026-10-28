@@ -92,8 +92,11 @@ def login_session(person: MeDep, state: StateDep, s: SessionDep) -> dict[str, An
     rows = accounts.ensure_rounds(s, state.settings.booth_date)
     if linked is None:
         name = person.nickname
-        if s.scalar(select(BoothParticipant.id).where(BoothParticipant.nickname == name)):
-            name = f"{name[:20]}·계정{person.id}"
+        attempt = 0
+        while s.scalar(select(BoothParticipant.id).where(BoothParticipant.nickname == name)):
+            suffix = f"·계정{person.id}" + (f"-{attempt}" if attempt else "")
+            name = f"{person.nickname[: 32 - len(suffix)]}{suffix}"
+            attempt += 1
         linked, token = accounts.register(s, name, now, state.settings.booth_date)
         linked.study_participant_id = person.id
     else:

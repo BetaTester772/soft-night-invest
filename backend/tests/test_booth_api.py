@@ -184,3 +184,29 @@ def test_qa_cash_requires_admin_and_qa_and_excludes_ranking(
     assert client.post(url, json=dict(body, amount=100_000_000), headers=ADMIN).status_code == 409
     clock.set(DAY, time(16, 50))
     assert client.post(url, json=body, headers=ADMIN).status_code == 409
+
+
+def test_linked_login_skips_all_occupied_fallback_nicknames(
+    client: TestClient, clock: Clock
+) -> None:
+    from conftest import register
+
+    study_headers = register(client)
+    person_id = client.get("/api/me", headers=study_headers).json()["id"]
+    clock.set(DAY, time(15, 59))
+    occupied = ["alice", f"alice·계정{person_id}", f"alice·계정{person_id}-1"]
+    old_ids = []
+    for name in occupied:
+        headers = join(client, name)
+        old_ids.append(
+            client.get("/api/booth/state", headers=headers).json()["me"]["participant_id"]
+        )
+    response = client.post("/api/booth/session", headers=study_headers)
+    assert response.status_code == 200, response.text
+    headers = {"Authorization": "Bearer " + response.json()["token"]}
+    account = client.get("/api/booth/state", headers=headers).json()["me"]
+    assert account["nickname"] == f"alice·계정{person_id}-2"
+    assert account["participant_id"] not in old_ids
+    response = client.post("/api/booth/session", headers=study_headers)
+    headers = {"Authorization": "Bearer " + response.json()["token"]}
+    assert client.get("/api/booth/state", headers=headers).json()["me"] == account
