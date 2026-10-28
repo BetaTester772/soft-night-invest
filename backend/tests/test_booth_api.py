@@ -1,6 +1,6 @@
 from datetime import date, time
 
-from conftest import ADMIN_KEY, Clock
+from conftest import ADMIN_KEY, Clock, FakeMailer
 from fastapi.testclient import TestClient
 
 DAY = date(2026, 10, 30)
@@ -210,3 +210,43 @@ def test_linked_login_skips_all_occupied_fallback_nicknames(
     response = client.post("/api/booth/session", headers=study_headers)
     headers = {"Authorization": "Bearer " + response.json()["token"]}
     assert client.get("/api/booth/state", headers=headers).json()["me"] == account
+
+
+def test_password_reset_revokes_all_linked_booth_tokens(
+    client: TestClient, clock: Clock, mailer: FakeMailer
+) -> None:
+    from conftest import register
+
+    study_headers = register(client)
+    clock.set(DAY, time(16, 0))
+    other_headers = join(client, "unrelated")
+    old_headers = []
+    for _ in range(2):
+        response = client.post("/api/booth/session", headers=study_headers)
+        assert response.status_code == 200, response.text
+        old_headers.append({"Authorization": "Bearer " + response.json()["token"]})
+    old_account = client.get("/api/booth/state", headers=old_headers[0]).json()["me"]
+    response = client.post("/api/auth/password-reset/code", json={"identity": "alice@g.skku.edu"})
+    assert response.status_code == 202, response.text
+    response = client.post(
+        "/api/auth/password-reset",
+        json={
+            "identity": "alice@g.skku.edu",
+            "code": mailer.last_code("alice@g.skku.edu"),
+            "password": "amber-lake-sunset-19",
+        },
+    )
+    assert response.status_code == 200, response.text
+    for headers in old_headers:
+        assert client.get("/api/booth/state", headers=headers).status_code == 401
+        assert (
+            client.post("/api/booth/orders", json=buy_payload(), headers=headers).status_code == 401
+        )
+    assert client.post("/api/booth/session", headers=study_headers).status_code == 401
+    assert client.get("/api/booth/state", headers=other_headers).status_code == 200
+    new_identity = {"Authorization": "Bearer " + response.json()["token"]}
+    linked = client.post("/api/booth/session", headers=new_identity)
+    assert linked.status_code == 200, linked.text
+    new_headers = {"Authorization": "Bearer " + linked.json()["token"]}
+    new_account = client.get("/api/booth/state", headers=new_headers).json()["me"]
+    assert new_account == old_account

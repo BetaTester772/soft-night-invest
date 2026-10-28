@@ -1,8 +1,8 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { boothTokenStore, tokenStore } from "../../api/storage";
+import { boothIdentityStore, boothTokenStore, tokenStore } from "../../api/storage";
 import { BoothApp } from "../BoothApp";
 import { boothState, config } from "./fixtures";
 
@@ -180,4 +180,36 @@ it("resolves the authenticated identity when both credentials are already stored
     url.includes("/booth/state") && (init?.headers as Record<string, string>).Authorization === "Bearer identity-account"
   )).toBe(true));
   expect(fetcher.mock.calls.filter(([url]) => url.includes("/booth/session"))).toHaveLength(1);
+});
+
+
+it("adopts a linked token from another tab without issuing replacement sessions", async () => {
+  tokenStore.set("shared-identity");
+  boothTokenStore.set("nickname-only");
+  let sessions = 0;
+  const fetcher = vi.fn(async (input: string) => {
+    if (input.includes("/booth/session")) {
+      sessions += 1;
+      return new Response(JSON.stringify({ token: `linked-${sessions}` }));
+    }
+    if (input.endsWith("/me")) return new Response(JSON.stringify({ id: 42, nickname: "김공룡" }));
+    return new Response(JSON.stringify(boothState()));
+  });
+  vi.stubGlobal("fetch", fetcher);
+  page();
+  await waitFor(() => expect(boothTokenStore.get()).toBe("linked-1"));
+  // A second tab starts with the shared association and needs no new session.
+  page();
+  await waitFor(() => expect(fetcher.mock.calls.filter(([url]) => url.endsWith("/me"))).toHaveLength(2));
+  expect(sessions, "after second tab mount").toBe(1);
+  for (const next of ["other-tab-token-A", "other-tab-token-B"]) {
+    await act(async () => {
+      boothIdentityStore.set({ identity: "shared-identity", booth: next });
+      boothTokenStore.set(next);
+      window.dispatchEvent(new StorageEvent("storage", { key: "dino.booth.token", newValue: next }));
+    });
+    expect(boothTokenStore.get()).toBe(next);
+    expect(sessions, next).toBe(1);
+  }
+  expect(sessions).toBe(1);
 });

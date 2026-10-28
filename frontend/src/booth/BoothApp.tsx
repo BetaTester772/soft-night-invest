@@ -6,7 +6,7 @@ import { LoginPage } from "../pages/Auth/LoginPage";
 import { RegisterPage } from "../pages/Auth/RegisterPage";
 import { ResetPasswordPage } from "../pages/Auth/ResetPasswordPage";
 import { onUnauthorized } from "../api/client";
-import { boothTokenStore, tokenStore } from "../api/storage";
+import { boothIdentityStore, boothTokenStore, tokenStore } from "../api/storage";
 import { useApi } from "../api/useApi";
 import {
   Button,
@@ -105,6 +105,15 @@ function BoothShell({ config }: { config: BoothConfig }) {
   }
   useEffect(() => {
     if (auth.status !== "authenticated" || !identityToken) return;
+    if (token !== boothTokenStore.get()) {
+      syncSession();
+      return;
+    }
+    const shared = boothIdentityStore.get();
+    if (shared?.identity === identityToken && shared.booth === token) {
+      linkedSession.current = shared;
+      return;
+    }
     if (linkedSession.current?.identity === identityToken && linkedSession.current.booth === token) return;
     let cancelled = false;
     const generation = sessionGeneration.current;
@@ -112,6 +121,8 @@ function BoothShell({ config }: { config: BoothConfig }) {
     void boothApi.session(identityToken).then((result) => {
       if (!cancelled && identityToken === tokenStore.get() && isCurrent(generation, expected)) {
         linkedSession.current = { identity: identityToken, booth: result.token };
+        // Publish the association before the token's storage event reaches other tabs.
+        boothIdentityStore.set(linkedSession.current);
         activateSession(result.token);
       }
     }).catch((err: unknown) => {

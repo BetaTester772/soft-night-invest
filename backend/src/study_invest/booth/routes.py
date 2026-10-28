@@ -19,6 +19,7 @@ from ..api.deps import (
 )
 from ..clock import OffsetClock
 from ..models import Participant
+from ..services import auth
 from ..services.common import DomainError, audit
 from . import accounts, market, schemas, views
 from .domain import SECTORS, sessions
@@ -82,9 +83,12 @@ def join(body: schemas.Join, state: StateDep, s: SessionDep) -> dict[str, Any]:
 
 
 @router.post("/session")
-def login_session(person: MeDep, state: StateDep, s: SessionDep) -> dict[str, Any]:
+def login_session(person: MeDep, state: StateDep, s: SessionDep, token: TokenDep) -> dict[str, Any]:
     # Serialize first login for the same identity; never claim a nickname-only account.
     s.scalar(select(Participant).where(Participant.id == person.id).with_for_update())
+    # A password reset may have revoked this login while we waited for the lock.
+    if token is None or auth.participant_by_token(s, token) is None:
+        raise DomainError("UNAUTHORIZED", "로그인이 필요합니다.", 401)
     linked = s.scalar(
         select(BoothParticipant).where(BoothParticipant.study_participant_id == person.id)
     )
