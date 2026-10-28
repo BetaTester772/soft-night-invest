@@ -141,3 +141,46 @@ def test_admin_requires_key_and_recovery_invalidates_old_token(
     assert client.get("/api/booth/state", headers=headers).status_code == 401
     new_headers = {"Authorization": "Bearer " + response.json()["token"]}
     assert client.get("/api/booth/state", headers=new_headers).status_code == 200
+
+
+def test_existing_login_reopens_same_booth_account(client: TestClient, clock: Clock) -> None:
+    from conftest import register
+
+    study_headers = register(client)
+    clock.set(DAY, time(15, 59))
+    assert client.post("/api/booth/session").status_code == 401
+    first = client.post("/api/booth/session", headers=study_headers)
+    assert first.status_code == 200, first.text
+    headers = {"Authorization": "Bearer " + first.json()["token"]}
+    original = client.get("/api/booth/state", headers=headers).json()["me"]
+    assert original["cash"] == 1_000_000
+    assert client.post("/api/booth/logout", headers=headers).status_code == 204
+    second = client.post("/api/booth/session", headers=study_headers)
+    headers = {"Authorization": "Bearer " + second.json()["token"]}
+    reopened = client.get("/api/booth/state", headers=headers).json()["me"]
+    assert reopened["participant_id"] == original["participant_id"]
+    assert reopened["cash"] == original["cash"]
+
+
+def test_qa_cash_requires_admin_and_qa_and_excludes_ranking(
+    client: TestClient, clock: Clock
+) -> None:
+    from dataclasses import replace
+
+    boot(client, clock)
+    headers = join(client)
+    person = client.get("/api/booth/state", headers=headers).json()["me"]
+    body = dict(round_id=1, participant_id=person["participant_id"], amount=1_000_000, reason="QA")
+    url = "/api/booth/admin/qa/cash"
+    assert client.post(url, json=body).status_code == 401
+    assert client.post(url, json=body, headers=ADMIN).status_code == 404
+    app_state = client.app.state.study_invest  # type: ignore[attr-defined]
+    app_state.settings = replace(app_state.settings, qa_tools=True)
+    assert client.post(url, json=dict(body, amount=-1), headers=ADMIN).status_code == 422
+    assert client.post(url, json=body, headers=ADMIN).status_code == 200
+    state = client.get("/api/booth/state", headers=headers).json()
+    assert state["me"]["cash"] == 2_000_000
+    assert state["ranking"] == []
+    assert client.post(url, json=dict(body, amount=100_000_000), headers=ADMIN).status_code == 409
+    clock.set(DAY, time(16, 50))
+    assert client.post(url, json=body, headers=ADMIN).status_code == 409

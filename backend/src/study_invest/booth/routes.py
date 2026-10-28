@@ -10,6 +10,7 @@ from sqlalchemy import delete, select
 
 from ..api.deps import (
     BatchSessionDep,
+    MeDep,
     SessionDep,
     SessionReleasingRoute,
     StateDep,
@@ -17,6 +18,7 @@ from ..api.deps import (
     require_admin,
 )
 from ..clock import OffsetClock
+from ..models import Participant
 from ..services.common import DomainError, audit
 from . import accounts, market, schemas, views
 from .domain import SECTORS, sessions
@@ -77,6 +79,30 @@ def join(body: schemas.Join, state: StateDep, s: SessionDep) -> dict[str, Any]:
     accounts.enroll(s, row, person, state.clock())
     s.commit()
     return {"token": token, "participant": {"id": person.id, "nickname": person.nickname}}
+
+
+@router.post("/session")
+def login_session(person: MeDep, state: StateDep, s: SessionDep) -> dict[str, Any]:
+    # Serialize first login for the same identity; never claim a nickname-only account.
+    s.scalar(select(Participant).where(Participant.id == person.id).with_for_update())
+    linked = s.scalar(
+        select(BoothParticipant).where(BoothParticipant.study_participant_id == person.id)
+    )
+    now = state.clock()
+    rows = accounts.ensure_rounds(s, state.settings.booth_date)
+    if linked is None:
+        name = person.nickname
+        if s.scalar(select(BoothParticipant.id).where(BoothParticipant.nickname == name)):
+            name = f"{name[:20]}·계정{person.id}"
+        linked, token = accounts.register(s, name, now, state.settings.booth_date)
+        linked.study_participant_id = person.id
+    else:
+        token = accounts.issue_token(s, linked, now)
+    row = accounts.lock_round(s, selected_id(rows, now))
+    if now < row.closes_at and row.state != "closed":
+        accounts.enroll(s, row, linked, now)
+    s.commit()
+    return {"token": token}
 
 
 @router.post("/enroll")
@@ -308,3 +334,31 @@ def qa_next(state: StateDep) -> dict[str, Any]:
     clock.jump_to(upcoming.opens_at)
     results = market.run_due(state.batch_session_factory, clock(), state.settings.booth_date)
     return {"now": views.iso(clock()), "results": results}
+
+
+@admin.post("/qa/cash")
+def qa_cash(body: schemas.GrantCash, state: StateDep, s: BatchSessionDep) -> dict[str, Any]:
+    if not state.settings.qa_tools:
+        raise DomainError("NOT_FOUND", "QA 도구가 비활성화되어 있습니다.", 404)
+    row = accounts.lock_round(s, body.round_id)
+    if row.state == "closed" or state.clock() >= row.closes_at:
+        raise DomainError("ROUND_CLOSED", "종료된 장에는 지급할 수 없습니다.")
+    account = accounts.get_account(s, row.number, body.participant_id, lock="update")
+    if account is None:
+        raise DomainError("ACCOUNT_NOT_FOUND", "이 장의 참가자가 아닙니다.", 404)
+    if account.qa_cash + body.amount > 100_000_000:
+        raise DomainError("QA_CASH_LIMIT", "장별 테스트 머니 지급 한도는 1억원입니다.")
+    account.cash += body.amount
+    account.qa_cash += body.amount
+    audit(
+        s,
+        state.clock(),
+        "admin",
+        "booth.qa.cash",
+        round_id=row.number,
+        participant_id=body.participant_id,
+        amount=body.amount,
+        reason=body.reason,
+    )
+    s.commit()
+    return {"message": "테스트 머니를 지급했습니다. 이 계좌는 랭킹·시상에서 제외됩니다."}

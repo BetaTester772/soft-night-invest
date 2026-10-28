@@ -151,7 +151,11 @@ def live_ranking(
             BoothParticipant.nickname,
         )
         .join(BoothParticipant, BoothParticipant.id == BoothAccount.participant_id)
-        .where(BoothAccount.round_id == row.number, BoothAccount.disqualified.is_(False))
+        .where(
+            BoothAccount.round_id == row.number,
+            BoothAccount.disqualified.is_(False),
+            BoothAccount.qa_cash == 0,
+        )
     )
     valued: list[tuple[int | Fraction, datetime | None, int, int, str]] = []
     for account_id, cash, stocks, holdings, first_trade, participant_id, nickname in records:

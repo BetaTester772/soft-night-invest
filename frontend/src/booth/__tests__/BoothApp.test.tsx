@@ -129,3 +129,30 @@ it("disables stock orders during a break", async () => {
     await screen.findByRole("button", { name: "주식 매매" }),
   ).toBeDisabled();
 });
+
+it("restores the existing login form and connects its identity to a booth account", async () => {
+  data = boothState(false);
+  const participant = { id: 42, nickname: "김공룡", status: "normal" };
+  const fetcher = vi.fn(async (input: string, init?: RequestInit) => {
+    if (input.includes("/auth/login")) {
+      expect(JSON.parse(String(init?.body))).toEqual({ identity: "2026310000", password: "password" });
+      return new Response(JSON.stringify({ token: "study-login", participant }));
+    }
+    if (input.includes("/booth/session")) {
+      expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer study-login");
+      data = boothState();
+      return new Response(JSON.stringify({ token: "linked-booth" }));
+    }
+    if (input.includes("/event")) return new Response(JSON.stringify({ signup: {} }));
+    if (input.endsWith("/me")) return new Response(JSON.stringify(participant));
+    return new Response(JSON.stringify(data));
+  });
+  vi.stubGlobal("fetch", fetcher);
+  page("/login");
+  const user = userEvent.setup();
+  await user.type(await screen.findByRole("textbox", { name: "학번" }), "2026310000");
+  await user.type(screen.getByLabelText(/비밀번호/), "password");
+  await user.click(screen.getByRole("button", { name: "로그인하기" }));
+  await waitFor(() => expect(localStorage.getItem("dino.booth.token")).toBe("linked-booth"));
+  expect(await screen.findByText("김공룡 님")).toBeInTheDocument();
+});
