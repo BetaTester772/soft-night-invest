@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from test_booth_api import ADMIN, DAY, boot, buy_payload, join
 
+from study_invest.booth import accounts
 from study_invest.booth.models import BoothRound
 from study_invest.models import AuditLog
 
@@ -255,3 +256,23 @@ def test_default_selection_follows_stored_round_times(client: TestClient, clock:
     clock.now += timedelta(minutes=50)
     client.post("/api/booth/admin/run", headers=ADMIN)
     assert client.get("/api/booth/state").json()["round"]["id"] == 1
+
+
+def test_cash_grant_principal_is_an_exact_integer(client: TestClient, clock: Clock) -> None:
+    boot(client, clock)
+    headers = join(client)
+    participant_id = client.get("/api/booth/state", headers=headers).json()["me"]["participant_id"]
+    for index, amount in enumerate((250_000, 125_001)):
+        response = client.post(
+            "/api/booth/admin/grant",
+            json=grant_body(participant_id, amount=amount, request_id=f"principal-grant-{index}"),
+            headers=ADMIN,
+        )
+        assert response.status_code == 200, response.text
+    with cast(FastAPI, client.app).state.study_invest.session_factory() as s:
+        row = accounts.lock_round(s, 1)
+        account = accounts.get_account(s, 1, participant_id)
+        assert account is not None
+        principal = accounts.principals(s, row)[account.id]
+        assert isinstance(principal, int)
+        assert principal == 1_375_001

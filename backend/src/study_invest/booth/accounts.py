@@ -223,7 +223,8 @@ def principals(s: Session, row: BoothRound) -> dict[int, int]:
         .where(BoothAccount.round_id == row.number)
         .group_by(BoothCashGrant.account_id)
     )
-    return {account_id: INITIAL_CASH + amount for account_id, amount in grants}
+    # PostgreSQL SUM(bigint) returns Decimal; keep money arithmetic in integer won.
+    return {account_id: INITIAL_CASH + int(amount) for account_id, amount in grants}
 
 
 def stock_value(account: BoothAccount, prices: dict[str, int]) -> int:
