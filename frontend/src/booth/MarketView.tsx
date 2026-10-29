@@ -51,7 +51,7 @@ export function MarketView({
       <section className={styles.panel}>
         <div className={styles.panelHead}>
           <h2>{t("공룡 증시")}</h2>
-          <small className={styles.muted}>{t("장 시작 가격 대비")}</small>
+          <small className={styles.muted}>{t("직전 공시 가격 대비")}</small>
         </div>
         <div className={styles.tableScroll}>
           <table className={styles.table}>
@@ -59,7 +59,7 @@ export function MarketView({
               <tr>
                 <th>{t("종목 / 섹터")}</th>
                 <th>{t("현재가")}</th>
-                <th>{t("장 수익률")}</th>
+                <th>{t("직전 대비 등락률")}</th>
                 <th className={styles.sparkColumn}>{t("가격 흐름")}</th>
               </tr>
             </thead>
@@ -80,8 +80,8 @@ export function MarketView({
                     </button>
                   </td>
                   <td>{won(i.price)}</td>
-                  <td className={styles[tone(i.return_rate)]}>
-                    {pct(i.return_rate)}
+                  <td className={styles[tone(i.change_rate)]}>
+                    {pct(i.change_rate)}
                   </td>
                   <td className={styles.sparkColumn}>
                     <div className={styles.spark}>
@@ -105,8 +105,8 @@ export function MarketView({
                 <small className={styles.muted}>{instrument.name}</small>
                 <h3>
                   {won(instrument.price)}{" "}
-                  <span className={styles[tone(instrument.return_rate)]}>
-                    {pct(instrument.return_rate)}
+                  <span className={styles[tone(instrument.change_rate)]}>
+                    {pct(instrument.change_rate)}
                   </span>
                 </h3>
               </div>
