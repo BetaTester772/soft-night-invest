@@ -237,14 +237,20 @@ def snapshot(
     for inst in INSTRUMENTS:
         sector = next(info["name"] for info in SECTORS.values() if inst.code in info["codes"])
         history = [{"x": iso(t.created_at), "y": t.prices[inst.code]} for t in ticks]
+        # The stock board compares consecutive published prices; the separate
+        # round return remains relative to the opening price.
+        previous_price = ticks[-2].prices[inst.code] if len(ticks) >= 2 else inst.initial_price
+        current_price = row.prices[inst.code]
         instruments.append(
             {
                 "code": inst.code,
                 "name": inst.name,
                 "sector": sector,
-                "price": row.prices[inst.code],
+                "price": current_price,
+                "previous_price": previous_price,
+                "change_rate": (current_price - previous_price) / previous_price,
                 "initial_price": inst.initial_price,
-                "return_rate": (row.prices[inst.code] - inst.initial_price) / inst.initial_price,
+                "return_rate": (current_price - inst.initial_price) / inst.initial_price,
                 "history": history or [{"x": iso(row.opens_at), "y": inst.initial_price}],
             }
         )
