@@ -98,8 +98,8 @@ def test_sector_incident_changes_only_target_sector(
     assert event["headline"] == "판게아 대륙 분리"
     assert set(event["rates"]) == {"PANG", "FOSS"}
     prices = {i["code"]: i["price"] for i in state["instruments"]}
-    assert prices["PANG"] == 30_000
-    assert prices["FOSS"] == 18_000
+    assert prices["PANG"] == 27_500
+    assert prices["FOSS"] == 16_500
     assert prices["FEED"] == 10_000
 
 

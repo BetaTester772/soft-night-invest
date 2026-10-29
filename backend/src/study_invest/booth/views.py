@@ -320,7 +320,7 @@ def snapshot(
     result = latest.get(row.number)
     events = s.scalars(
         select(BoothEvent)
-        .where(BoothEvent.round_id == row.number)
+        .where(BoothEvent.round_id == row.number, BoothEvent.tick == row.version)
         .order_by(BoothEvent.id.desc())
         .limit(30)
     )
