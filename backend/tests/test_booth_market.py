@@ -142,3 +142,56 @@ def test_meteor_is_published_once_after_resume(client: TestClient, clock: Clock)
     assert client.post("/api/booth/admin/run", headers=ADMIN).status_code == 200
     state = client.get("/api/booth/state?round_id=3").json()
     assert len([e for e in state["events"] if e["kind"] == "meteor"]) == 1
+
+
+def test_stock_change_is_relative_to_previous_published_tick(
+    client: TestClient, clock: Clock
+) -> None:
+    boot(client, clock)
+    initial = client.get("/api/booth/state").json()
+    first = next(i for i in initial["instruments"] if i["code"] == "PANG")
+    assert first["previous_price"] == first["price"] == 25_000
+    assert first["change_rate"] == 0
+
+    response = client.post(
+        "/api/booth/admin/incident",
+        json={
+            "round_id": 1,
+            "sector": "build",
+            "rate": 0.2,
+            "headline": "첫 가격 급등",
+            "reason": "직전 대비 테스트",
+        },
+        headers=ADMIN,
+    )
+    assert response.status_code == 200, response.text
+    run(client, clock, 0, 30)
+    first_tick = client.get("/api/booth/state").json()
+    first_price = next(i for i in first_tick["instruments"] if i["code"] == "PANG")
+    assert first_price["previous_price"] == 25_000
+    assert first_price["price"] > 25_000
+    assert first_price["change_rate"] == (first_price["price"] - 25_000) / 25_000
+
+    run(client, clock, 1, 0)
+    second_tick = client.get("/api/booth/state").json()
+    second_price = next(i for i in second_tick["instruments"] if i["code"] == "PANG")
+    assert second_price["previous_price"] == first_price["price"]
+    assert (
+        second_price["change_rate"]
+        == (second_price["price"] - first_price["price"]) / first_price["price"]
+    )
+    assert second_price["return_rate"] == (second_price["price"] - 25_000) / 25_000
+
+
+def test_stock_change_is_zero_after_resume_without_new_price(
+    client: TestClient, clock: Clock
+) -> None:
+    boot(client, clock)
+    run(client, clock, 0, 30)
+    control(client, "pause")
+    clock.set(DAY, time(17, 2))
+    control(client, "resume")
+    state = client.get("/api/booth/state").json()
+    for instrument in state["instruments"]:
+        assert instrument["previous_price"] == instrument["price"]
+        assert instrument["change_rate"] == 0

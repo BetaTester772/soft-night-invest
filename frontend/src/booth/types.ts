@@ -25,6 +25,8 @@ export interface Instrument {
   sector: string;
   price: number;
   initial_price: number;
+  previous_price: number;
+  change_rate: number;
   return_rate: number;
   history: ChartPoint[];
 }
