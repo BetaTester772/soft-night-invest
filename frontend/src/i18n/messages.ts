@@ -175,6 +175,8 @@ export const english: Record<string, string> = {
   "아직 속보가 없습니다. 다음 사건을 기다려보세요.": "No news yet. Stay tuned for the next event.",
   "공룡 증시": "Dinosaur stock market",
   "장 시작 가격 대비": "Change since round opening",
+  "직전 공시 가격 대비": "Since previous published price",
+  "직전 대비 등락률": "Change from previous price",
   "종목 / 섹터": "Stock / sector",
   "현재가": "Current price",
   "장 수익률": "Round return",
