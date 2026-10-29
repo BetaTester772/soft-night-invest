@@ -26,7 +26,7 @@ def test_prices_update_every_thirty_seconds_without_pausing(
     assert state["round"]["version"] == 1
     assert state["round"]["state"] == "open"
     assert state["round"]["update_interval_seconds"] == 30
-    assert state["funds"][0]["last_decision_at"].endswith("16:00:30+09:00")
+    assert state["funds"][0]["last_decision_at"].endswith("17:00:30+09:00")
 
 
 def test_fifty_minute_session_finishes_after_one_hundred_updates(
@@ -92,4 +92,4 @@ def test_already_open_legacy_session_retains_its_stored_tick_meaning(
     state = client.get("/api/booth/state").json()
     assert state["round"]["version"] == 1
     assert state["round"]["update_interval_seconds"] == 10
-    assert state["instruments"][0]["history"][-1]["x"].endswith("16:00:10+09:00")
+    assert state["instruments"][0]["history"][-1]["x"].endswith("17:00:10+09:00")

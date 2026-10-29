@@ -141,3 +141,13 @@ it('offers the selector on the broadcast and admin screens', async () => {
   await waitFor(() => expect(screen.getByRole('heading', { name: 'Exchange administration' })).toBeInTheDocument());
   expect(screen.getByRole('group', { name: 'Choose language' })).toBeInTheDocument();
 });
+
+it('shows the dinner break and automatically generated English market headlines', async () => {
+  const original = boothState();
+  const data = { ...original, events: [{ id: 9, kind: 'market', headline: '초식공룡 식탁에 초록불… 사료·바이오 주가 상승', sector: 'feed', rates: {}, created_at: original.now }] };
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(data))));
+  page();
+  expect(await screen.findByText('Dinner break · 17:50–18:30 (KST)')).toBeInTheDocument();
+  expect(screen.getAllByText('Green lights at the herbivore table: feed & biotech stocks rise.').length).toBeGreaterThan(0);
+  expect(screen.getByRole('button', { name: /Jurassic.*18:30.*19:20/ })).toBeInTheDocument();
+});

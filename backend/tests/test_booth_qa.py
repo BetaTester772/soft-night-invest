@@ -10,7 +10,7 @@ ADMIN = {"X-Admin-Key": ADMIN_KEY}
 
 
 def test_qa_clock_can_step_and_move_to_next_session() -> None:
-    clock = Clock(kst(date(2026, 10, 30), time(15, 59, 50)))
+    clock = Clock(kst(date(2026, 10, 30), time(16, 59, 50)))
     app = create_app(
         Settings(
             database_url="sqlite://",

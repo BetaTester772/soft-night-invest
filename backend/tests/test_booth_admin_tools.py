@@ -90,8 +90,8 @@ def test_open_now_cannot_reset_or_overlap_another_round(client: TestClient, cloc
         == 409
     )
     assert client.get("/api/booth/state?round_id=1").json()["round"] == before
-    clock.set(DAY, time(16, 30))
-    # A 50-minute window here would overlap the pending second round at 17:00.
+    clock.set(DAY, time(18))
+    # A 50-minute window here would overlap the pending second round at 18:30.
     assert (
         client.post(
             "/api/booth/admin/open", json={"round_id": 3, "reason": "시간 중복"}, headers=ADMIN
@@ -204,7 +204,7 @@ def test_cash_grant_cannot_change_closed_results(client: TestClient, clock: Cloc
     boot(client, clock)
     headers = join(client)
     participant = client.get("/api/booth/state", headers=headers).json()["me"]["participant_id"]
-    clock.set(DAY, time(16, 50))
+    clock.set(DAY, time(17, 50))
     client.post("/api/booth/admin/run", headers=ADMIN)
     assert (
         client.post(
@@ -243,7 +243,7 @@ def test_ranking_compares_investment_returns_after_grants(client: TestClient, cl
     assert data["me"]["return_rate"] == 0.008
     assert data["ranking"][0]["nickname"] == "일반 참가자"
     assert data["ranking"][0]["return_rate"] == 0.01
-    clock.set(DAY, time(16, 50))
+    clock.set(DAY, time(17, 50))
     client.post("/api/booth/admin/run", headers=ADMIN)
     result = client.get("/api/booth/state?round_id=1").json()["result"]
     assert result["entries"][0]["nickname"] == "일반 참가자"

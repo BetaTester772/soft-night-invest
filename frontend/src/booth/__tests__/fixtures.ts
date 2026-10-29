@@ -1,13 +1,13 @@
 import type { BoothState, Result } from "../types";
 
 export function boothState(enrolled = true): BoothState {
-  const now = "2026-10-30T16:10:00+09:00";
+  const now = "2026-10-30T17:10:00+09:00";
   const rounds = [
     {
       id: 1,
       era: "트라이아스기",
-      opens_at: "2026-10-30T16:00:00+09:00",
-      closes_at: "2026-10-30T16:50:00+09:00",
+      opens_at: "2026-10-30T17:00:00+09:00",
+      closes_at: "2026-10-30T17:50:00+09:00",
       state: "open",
       is_open: true,
       version: 60,
@@ -17,8 +17,8 @@ export function boothState(enrolled = true): BoothState {
     {
       id: 2,
       era: "쥐라기",
-      opens_at: "2026-10-30T17:00:00+09:00",
-      closes_at: "2026-10-30T17:50:00+09:00",
+      opens_at: "2026-10-30T18:30:00+09:00",
+      closes_at: "2026-10-30T19:20:00+09:00",
       state: "pending",
       is_open: false,
       version: 0,
@@ -69,7 +69,7 @@ export function boothState(enrolled = true): BoothState {
         initial_price: 10000,
         return_rate: 0,
         history: [
-          { x: "2026-10-30T16:00:00+09:00", y: 10000 },
+          { x: "2026-10-30T17:00:00+09:00", y: 10000 },
           { x: now, y: 10000 },
         ],
       },

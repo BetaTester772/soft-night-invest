@@ -343,7 +343,7 @@ export function AdminView({ config }: { config: BoothConfig }) {
           {config.qa_tools && (
             <div className={styles.form}>
               <h3>{t("테스트 머니 지급")}</h3>
-              <TextField label={t("지급 금액 (원)")} type="number" min={1} max={100000000}
+              <TextField label={t("테스트 머니 지급 금액 (원)")} type="number" min={1} max={100000000}
                 step={1} value={cashAmount} onChange={(e) => setCashAmount(e.target.value)} />
               <p className={styles.muted}>{t("테스트 머니를 받은 계좌는 이 장의 랭킹·시상에서 제외됩니다. 장별 한도 1억원.")}</p>
               <Button disabled={busy || !participant || !reason.trim() ||

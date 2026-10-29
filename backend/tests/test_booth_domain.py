@@ -24,10 +24,12 @@ def at(hour: int, minute: int, second: int = 0) -> datetime:
 def test_session_boundaries_and_dinner_break() -> None:
     day = date(2026, 10, 30)
     assert [s.number for s in sessions(day)] == [1, 2, 3]
-    assert active_session(at(16, 0), day).number == 1  # type: ignore[union-attr]
-    assert active_session(at(16, 49, 59), day).number == 1  # type: ignore[union-attr]
-    assert active_session(at(16, 50), day) is None
+    assert active_session(at(17, 0), day).number == 1  # type: ignore[union-attr]
+    assert active_session(at(17, 49, 59), day).number == 1  # type: ignore[union-attr]
     assert active_session(at(17, 50), day) is None
+    assert active_session(at(18, 29, 59), day) is None
+    assert active_session(at(18, 30), day).number == 2  # type: ignore[union-attr]
+    assert active_session(at(19, 20), day) is None
     assert active_session(at(19, 29, 59), day) is None
     assert active_session(at(19, 30), day).number == 3  # type: ignore[union-attr]
     assert active_session(at(20, 20), day) is None

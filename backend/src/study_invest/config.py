@@ -96,7 +96,7 @@ class Settings:
     event_mode: Literal["study", "booth"] = "study"
     booth_date: date = date(2026, 10, 30)
     booth_public_url: str = ""
-    booth_clock_start: time = time(15, 59, 50)
+    booth_clock_start: time = time(16, 59, 50)
     scheduler_enabled: bool = False
     """켜면 앱 프로세스 안에서 09:00·18:00 배치를 자동 실행한다."""
     scheduler_interval_seconds: float = 30.0
@@ -179,7 +179,7 @@ class Settings:
             booth_date=_env_date(env, "STUDY_INVEST_BOOTH_DATE", cls.booth_date),
             booth_public_url=env.get("STUDY_INVEST_PUBLIC_URL", "").strip().rstrip("/"),
             booth_clock_start=time.fromisoformat(
-                env.get("STUDY_INVEST_BOOTH_CLOCK_START") or "15:59:50"
+                env.get("STUDY_INVEST_BOOTH_CLOCK_START") or "16:59:50"
             ),
             database_url=env.get("STUDY_INVEST_DATABASE_URL", cls.database_url),
             batch_database_url=env.get("STUDY_INVEST_BATCH_DATABASE_URL") or None,

@@ -1,3 +1,4 @@
+import { t, useLanguage } from '../../i18n';
 import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ApiError, authApi, publicApi, useApi, type ProfileFields as ProfileFieldsValue } from '../../api';
@@ -44,6 +45,7 @@ export function validateRegister(f: RegisterForm, requireCode = true): Errors {
 }
 
 export function RegisterPage() {
+  useLanguage();
   const { register, status } = useAuth();
   const event = useApi(() => publicApi.event(), []);
   // 설정을 못 받으면 코드 없는 가입 폼(기본값)을 보여 준다. 서버가 코드를 요구하면 CODE_REQUIRED로 알려 준다.
@@ -88,7 +90,7 @@ export function RegisterPage() {
         },
         await turnstile.take(),
       );
-      toast.success('참가 신청을 마쳤습니다', '1,000,000원으로 시작합니다. 첫 종목을 골라 보세요.');
+      toast.success(t('참가 신청을 마쳤습니다'), t('1,000,000원으로 시작합니다. 첫 종목을 골라 보세요.'));
       navigate(from, { replace: true });
     } catch (err) {
       if (err instanceof ApiError && err.code === 'EMAIL_TAKEN') {
@@ -114,13 +116,13 @@ export function RegisterPage() {
   return (
     <Container size="sm">
       <PageHeader
-        title="참가 신청"
-        description="학교 메일과 학번으로 한 사람당 한 계정만 만들 수 있습니다. 모두 같은 1,000,000원으로 시작하며, 중간에 참가해도 동일하게 지급됩니다."
+        title={t("참가 신청")}
+        description={t("학교 메일과 학번으로 한 사람당 한 계정만 만들 수 있습니다. 모두 같은 1,000,000원으로 시작하며, 중간에 참가해도 동일하게 지급됩니다.")}
       />
       <Card>
         <form ref={formRef} onSubmit={onSubmit} noValidate>
           <Stack gap={4}>
-            {errors.form && <Alert tone="danger">{errors.form}</Alert>}
+            {errors.form && <Alert tone="danger">{t(errors.form)}</Alert>}
             <SchoolEmailFields
               withCode={requireCode}
               captchaWaiting={turnstile.waiting}
@@ -146,34 +148,34 @@ export function RegisterPage() {
               errors={errors}
             />
             <TextField
-              label="닉네임"
-              hint="2~20자. 랭킹에는 닉네임만 표시됩니다."
+              label={t("닉네임")}
+              hint={t("2~20자. 랭킹에는 닉네임만 표시됩니다.")}
               value={form.nickname}
               onChange={(e) => set('nickname', e.target.value)}
-              error={errors.nickname}
+              error={errors.nickname ? t(errors.nickname) : undefined}
               maxLength={20}
               required
             />
             <TextField
-              label="비밀번호"
+              label={t("비밀번호")}
               type="password"
-              hint={PASSWORD_HINT}
+              hint={t(PASSWORD_HINT)}
               autoComplete="new-password"
               value={form.password}
               onChange={(e) => set('password', e.target.value)}
-              error={errors.password}
+              error={errors.password ? t(errors.password) : undefined}
               required
             />
             <TextField
-              label="비밀번호 확인"
+              label={t("비밀번호 확인")}
               type="password"
               autoComplete="new-password"
               value={form.confirm}
               onChange={(e) => set('confirm', e.target.value)}
-              error={errors.confirm}
+              error={errors.confirm ? t(errors.confirm) : undefined}
               required
             />
-            <PrivacyConsent checked={form.consent} onChange={(v) => set('consent', v)} error={errors.consent} />
+            <PrivacyConsent checked={form.consent} onChange={(v) => set('consent', v)} error={errors.consent ? t(errors.consent) : undefined} />
             {!requireCode && turnstile.widget}
             {/* 봇 확인을 기다리는 동안은 '처리 중' 스피너 대신 무엇을 기다리는지 보여 준다. */}
             <Button
@@ -183,12 +185,12 @@ export function RegisterPage() {
               loading={submitting && !turnstile.waiting}
               disabled={turnstile.waiting}
             >
-              {turnstile.waiting ? '보안 확인을 기다리는 중' : '참가 신청하기'}
+              {t(turnstile.waiting ? '보안 확인을 기다리는 중' : '참가 신청하기')}
             </Button>
             <Text size="sm" tone="muted">
-              이미 참가했나요?{' '}
+              {t('이미 참가했나요?')}{' '}
               <Link to="/login" state={location.state}>
-                로그인하기
+                {t('로그인하기')}
               </Link>
             </Text>
           </Stack>

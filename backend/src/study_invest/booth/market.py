@@ -22,6 +22,7 @@ from . import funds
 from .accounts import ensure_rounds, lock_round
 from .domain import FUND_INTERVAL_SECONDS, SECTORS, TICK_SECONDS, initial_prices, tick_seconds
 from .models import BoothEvent, BoothOrder, BoothResult, BoothRound, BoothTick
+from .news import market_headline
 from .views import latest_result, live_ranking
 
 CAPS = {1: 0.004, 2: 0.007, 3: 0.01}
@@ -207,7 +208,11 @@ def tick(s: Session, row: BoothRound, number: int) -> None:
         draw_stock_randoms(row.prices, rng),
         news=event_rates(s, row, number, now, rng),
     )
+    previous = row.prices
     row.prices = {code: move.new_price for code, move in moves.items()}
+    if elapsed % 120 == 0 and now < row.closes_at:
+        sector, headline = market_headline(previous, row.prices, elapsed // 120)
+        publish_event(s, row, number, now, kind="market", headline=headline, sector=sector)
     row.version, row.published_at = number, now
     record = BoothTick(
         round_id=row.number, number=number, prices=dict(row.prices), created_at=now, detail={}
