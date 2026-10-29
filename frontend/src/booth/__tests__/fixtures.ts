@@ -1,4 +1,6 @@
-export function boothState(enrolled = true) {
+import type { BoothState, Result } from "../types";
+
+export function boothState(enrolled = true): BoothState {
   const now = "2026-10-30T16:10:00+09:00";
   const rounds = [
     {
@@ -100,13 +102,7 @@ export function boothState(enrolled = true) {
         first_trade_at: now,
       },
     ],
-    result: null as {
-      round_id: number;
-      revision: number;
-      confirmed: boolean;
-      entries: unknown[];
-      created_at: string;
-    } | null,
+    result: null as Result | null,
     results: [],
     me: enrolled
       ? {
@@ -115,6 +111,7 @@ export function boothState(enrolled = true) {
           round_id: 1,
           enrolled: true,
           cash: 1000000,
+          principal: 1000000,
           stock_value: 0,
           fund_value: 0,
           total_assets: 1000000,

@@ -9,7 +9,7 @@ from datetime import date, datetime
 from fractions import Fraction
 from typing import Any, Literal
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from ..execution import execute_stock
@@ -19,7 +19,6 @@ from ..services.common import DomainError, audit, batch_lock
 from .domain import (
     BY_CODE,
     FUNDS,
-    active_session,
     fund_buy,
     fund_sell,
     fund_value,
@@ -27,7 +26,14 @@ from .domain import (
     sessions,
     tick_seconds,
 )
-from .models import BoothAccount, BoothOrder, BoothParticipant, BoothRound, BoothToken
+from .models import (
+    BoothAccount,
+    BoothCashGrant,
+    BoothOrder,
+    BoothParticipant,
+    BoothRound,
+    BoothToken,
+)
 
 
 def ensure_rounds(s: Session, day: date) -> list[BoothRound]:
@@ -93,7 +99,8 @@ def participant_for(
 
 
 def register(s: Session, nickname: str, now: datetime, day: date) -> tuple[BoothParticipant, str]:
-    if now >= sessions(day)[-1].closes_at:
+    rounds = ensure_rounds(s, day)
+    if now >= max(r.closes_at for r in rounds):
         raise DomainError("EVENT_ENDED", "모든 장이 종료되었습니다.")
     name = normalize_nickname(nickname)
     if not 1 <= len(name) <= 32 or any(unicodedata.category(c).startswith("C") for c in name):
@@ -148,13 +155,76 @@ def enroll(s: Session, row: BoothRound, person: BoothParticipant, now: datetime)
 
 
 def assert_open(row: BoothRound, now: datetime) -> None:
-    spec = active_session(now, row.day)
-    if row.state != "open" or spec is None or spec.number != row.number:
+    if row.state != "open" or not row.opens_at <= now < row.closes_at:
         raise DomainError("MARKET_CLOSED", "지금은 이 장의 거래 시간이 아닙니다.")
     if row.published_at is None or (now - row.published_at).total_seconds() >= 3 * tick_seconds(
         row.private
     ):
         raise DomainError("STALE_PRICE", "시세 갱신이 지연되어 거래를 잠시 멈췄습니다.")
+
+
+def grant_cash(
+    s: Session,
+    row: BoothRound,
+    participant_id: int,
+    amount: int,
+    request_id: str,
+    reason: str,
+    now: datetime,
+) -> BoothAccount:
+    account = get_account(s, row.number, participant_id, lock="update")
+    if account is None:
+        raise DomainError("ACCOUNT_NOT_FOUND", "이 장의 참가자가 아닙니다.", 404)
+    previous = s.scalar(
+        select(BoothCashGrant).where(
+            BoothCashGrant.account_id == account.id, BoothCashGrant.request_id == request_id
+        )
+    )
+    if previous:
+        if (previous.amount, previous.reason) != (amount, reason):
+            raise DomainError("REQUEST_CONFLICT", "같은 요청 번호의 지급 내용이 다릅니다.")
+        return account
+    if row.state == "closed" or now >= row.closes_at:
+        raise DomainError("ROUND_CLOSED", "종료된 장에는 지원금을 지급할 수 없습니다.")
+    if account.disqualified:
+        raise DomainError("DISQUALIFIED", "실격된 참가자에게는 지원금을 지급할 수 없습니다.")
+    if account.cash + amount > 10**15:
+        raise DomainError("CASH_LIMIT", "계좌의 현금 한도를 초과합니다.")
+    account.cash += amount
+    s.add(
+        BoothCashGrant(
+            account_id=account.id,
+            request_id=request_id,
+            amount=amount,
+            reason=reason,
+            created_at=now,
+        )
+    )
+    audit(
+        s,
+        now,
+        "admin",
+        "booth.cash.grant",
+        round_id=row.number,
+        participant_id=participant_id,
+        amount=amount,
+        request_id=request_id,
+        reason=reason,
+        cash=account.cash,
+    )
+    s.flush()
+    return account
+
+
+def principals(s: Session, row: BoothRound) -> dict[int, int]:
+    grants = s.execute(
+        select(BoothCashGrant.account_id, func.sum(BoothCashGrant.amount))
+        .join(BoothAccount, BoothAccount.id == BoothCashGrant.account_id)
+        .where(BoothAccount.round_id == row.number)
+        .group_by(BoothCashGrant.account_id)
+    )
+    # PostgreSQL SUM(bigint) returns Decimal; keep money arithmetic in integer won.
+    return {account_id: INITIAL_CASH + int(amount) for account_id, amount in grants}
 
 
 def stock_value(account: BoothAccount, prices: dict[str, int]) -> int:
