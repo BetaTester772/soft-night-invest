@@ -135,7 +135,7 @@ def test_fund_purchase_and_redemption_preserve_cash(client: TestClient, clock: C
     assert response.json()["me"]["fund_value"] == 0
 
 
-def test_admin_requires_key_and_recovery_invalidates_old_token(
+def test_admin_requires_key_and_obsolete_recovery_is_unavailable(
     client: TestClient,
     clock: Clock,
 ) -> None:
@@ -148,10 +148,8 @@ def test_admin_requires_key_and_recovery_invalidates_old_token(
         json={"participant_id": participant, "reason": "현장 본인 확인"},
         headers=ADMIN,
     )
-    assert response.status_code == 200, response.text
-    assert client.get("/api/booth/state", headers=headers).status_code == 401
-    new_headers = {"Authorization": "Bearer " + response.json()["token"]}
-    assert client.get("/api/booth/state", headers=new_headers).status_code == 200
+    assert response.status_code == 404, response.text
+    assert client.get("/api/booth/state", headers=headers).status_code == 200
 
 
 def test_existing_login_reopens_same_booth_account(client: TestClient, clock: Clock) -> None:

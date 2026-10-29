@@ -71,10 +71,5 @@ class Step(Body):
     seconds: Annotated[int, Field(strict=True, ge=1, le=TICK_SECONDS)]
 
 
-class Recover(Body):
-    participant_id: Positive
-    reason: str = Field(min_length=1, max_length=300)
-
-
 class GrantCash(Disqualify):
     amount: Annotated[int, Field(strict=True, ge=1, le=100_000_000)]

@@ -50,8 +50,17 @@ function expect(r, status) {
 export default function () {
   const headers = {'Content-Type': 'application/json'};
   if (!token) {
-    const r = http.post(BASE + '/api/booth/join', JSON.stringify({nickname: `stress${__ENV.RUN_ID}_${__VU}`}), {headers});
-    if (!expect(r, 201)) { sleep(1); return; }
+    const member = http.post(BASE + '/api/auth/register', JSON.stringify({
+      email: `stress${__ENV.RUN_ID}_${__VU}@g.skku.edu`,
+      name: '부하검사 참가자', student_id: String(__VU).padStart(10, '0'),
+      department: '소프트웨어학과', nickname: `stress${__ENV.RUN_ID}_${__VU}`,
+      password: 'tiger-moon-river-42', privacy_consent: true,
+    }), {headers});
+    if (!expect(member, 201)) { sleep(1); return; }
+    const r = http.post(BASE + '/api/booth/session', null, {
+      headers: {...headers, Authorization: `Bearer ${member.json('token')}`},
+    });
+    if (!expect(r, 200)) { sleep(1); return; }
     token = r.json('token');
   }
   headers.Authorization = `Bearer ${token}`;

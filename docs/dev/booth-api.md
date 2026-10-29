@@ -18,7 +18,6 @@
 | POST /api/booth/admin/incident | round_id, sector(feed/build/space), rate(-0.5~0.5), headline, reason |
 | POST /api/booth/admin/disqualify | round_id, participant_id, reason. 마감 후에는 결과 수정 버전 생성 |
 | POST /api/booth/admin/confirm | round_id, revision. 최신 시상 결과 확정 |
-| POST /api/booth/admin/recover | participant_id, reason. 이전 토큰 폐기 후 새 복구 토큰 발급 |
 | POST /api/booth/admin/qa/step | QA 전용. seconds(1~30) 진행 |
 | POST /api/booth/admin/qa/next | QA 전용. 다음 장 개장으로 이동 |
 
@@ -31,3 +30,5 @@
 펀드는 공통 모델 계좌의 기준가 연동 방식이다. 사용자의 청약·환매는 모델 계좌 원금을 바꾸지 않는다. 기준가는 모델 총자산/1,000이고, 좌수와 실제 지급액은 정수·유리수 계산한다. 응답의 표시용 nav(float)를 체결 원장 계산에 사용하지 않는다.
 
 신규 장의 가격 갱신 주기는 30초이며 round.update_interval_seconds로 공개한다. 배포 전에 이미 열린 장은 저장된 구간 번호와 사건 계획을 보존하기 위해 기존 10초 주기를 마감까지 유지한다. 화면 조회는 2초 간격이다.
+
+회원 계좌 복구는 `/login` 또는 `/reset-password`를 사용한다. 관리자 복구 토큰 발급 API는 제공하지 않는다.

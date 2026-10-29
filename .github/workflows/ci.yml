@@ -259,8 +259,11 @@ jobs:
           curl -fsS http://localhost:8080/api/instruments > /dev/null
           curl -fsS http://localhost:8080/api/booth/config | python3 -c 'import json,sys; assert json.load(sys.stdin)["mode"] == "booth"'
           curl -fsS -X POST http://localhost:8080/api/booth/admin/qa/next -H 'X-Admin-Key: ci-admin-key'
-          token=$(curl -fsS -X POST http://localhost:8080/api/booth/join -H 'content-type: application/json' \
-            -d '{"nickname":"ci-dinosaur"}' | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
+          identity=$(curl -fsS -X POST http://localhost:8080/api/auth/register -H 'content-type: application/json' \
+            -d '{"email":"ci-dinosaur@g.skku.edu","name":"CI 참가자","student_id":"2099000001","department":"소프트웨어학과","nickname":"ci-dinosaur","password":"tiger-moon-river-42","privacy_consent":true}' \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
+          token=$(curl -fsS -X POST http://localhost:8080/api/booth/session -H "Authorization: Bearer ${identity}" \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
           curl -fsS -X POST http://localhost:8080/api/booth/orders -H "Authorization: Bearer ${token}" \
             -H 'content-type: application/json' \
             -d '{"round_id":1,"request_id":"ci-stock-order","kind":"stock","code":"FEED","side":"buy","quantity":2}' \

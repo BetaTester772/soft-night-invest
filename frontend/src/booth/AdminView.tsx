@@ -25,7 +25,6 @@ export function AdminView({ config }: { config: BoothConfig }) {
   const [rate, setRate] = useState("10");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [recovered, setRecovered] = useState("");
   const status = useApi(() => boothApi.status(), [authenticated], {
     enabled: authenticated,
     refreshInterval: 3000,
@@ -45,14 +44,12 @@ export function AdminView({ config }: { config: BoothConfig }) {
     if (busy) return;
     setBusy(true);
     setMessage("");
-    setRecovered("");
     try {
-      const result = await boothApi.admin<{ message?: string; token?: string }>(
+      const result = await boothApi.admin<{ message?: string }>(
         name,
         body,
       );
       setMessage(result?.message ?? "처리했습니다.");
-      if (result?.token) setRecovered(result.token);
       await status.refetch();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "처리하지 못했습니다.");
@@ -272,17 +269,7 @@ export function AdminView({ config }: { config: BoothConfig }) {
             >
               {t("이 장에서 실격 처리")}
             </Button>
-            <Button
-              disabled={busy || !participant || !reason.trim()}
-              onClick={() =>
-                void action("recover", {
-                  participant_id: Number(participant),
-                  reason,
-                })
-              }
-            >
-              {t("현장 확인 후 계좌 복구")}
-            </Button>
+
           </div>
           {config.qa_tools && (
             <div className={styles.form}>
@@ -298,11 +285,7 @@ export function AdminView({ config }: { config: BoothConfig }) {
               </Button>
             </div>
           )}
-          {recovered && (
-            <label>{t("새 복구 토큰")}{" "}<textarea value={recovered} readOnly rows={3} />
-              <small>{t("이 토큰을 본인에게 전달하세요. 이전 기기의 토큰은 폐기되었습니다.")}</small>
-            </label>
-          )}
+          <p className={styles.muted}>{t("계좌에 다시 접속하려면 참가자에게 로그인 또는 학교 메일로 비밀번호 재설정을 안내하세요.")}{" "}<a href="/reset-password">{t("비밀번호 재설정")}</a></p>
           <p className={styles.muted}>{t("닉네임과 현장 참가자를 확인한 뒤 처리하세요. 모든 변경은 사유와 함께 기록합니다.")}</p>
         </section>
         <section className={styles.panel + " " + styles.adminSection}>
