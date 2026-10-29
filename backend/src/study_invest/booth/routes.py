@@ -71,17 +71,6 @@ def state_info(
     return result
 
 
-@router.post("/join", status_code=201)
-def join(body: schemas.Join, state: StateDep, s: SessionDep) -> dict[str, Any]:
-    rows = accounts.ensure_rounds(s, state.settings.booth_date)
-    now = state.clock()
-    person, token = accounts.register(s, body.nickname, now, state.settings.booth_date)
-    row = accounts.lock_round(s, selected_id(rows, now))
-    accounts.enroll(s, row, person, state.clock())
-    s.commit()
-    return {"token": token, "participant": {"id": person.id, "nickname": person.nickname}}
-
-
 @router.post("/session")
 def login_session(person: MeDep, state: StateDep, s: SessionDep, token: TokenDep) -> dict[str, Any]:
     # Serialize first login for the same identity; never claim a nickname-only account.

@@ -17,16 +17,7 @@ beforeEach(() => {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: string, init?: RequestInit) => {
-      if (input.includes("/join")) {
-        data = boothState();
-        return new Response(
-          JSON.stringify({
-            token: "booth-test",
-            participant: { id: 1, nickname: "김공룡" },
-          }),
-          { status: 201 },
-        );
-      }
+      if (input.includes("/event")) return new Response(JSON.stringify({ signup: {} }));
       if (input.includes("/orders")) {
         if (rejection)
           return new Response(
@@ -70,15 +61,16 @@ function page(path = "/") {
   );
 }
 
-it("joins with only a nickname and shows the server account", async () => {
+it("requires the full registration form for first participation", async () => {
   data = boothState(false);
   page();
   const user = userEvent.setup();
   await user.click(await screen.findByRole("button", { name: "참가하기" }));
-  await user.type(screen.getByRole("textbox", { name: /닉네임/ }), "김공룡");
-  await user.click(screen.getByRole("button", { name: "거래소 입장하기" }));
-  expect(await screen.findByText("김공룡 님")).toBeInTheDocument();
-  expect(localStorage.getItem("dino.booth.token")).toBe("booth-test");
+  expect(await screen.findByRole("textbox", { name: "학번" })).toBeInTheDocument();
+  expect(screen.getAllByLabelText(/비밀번호/)).toHaveLength(2);
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(localStorage.getItem("dino.booth.token")).toBeNull();
+  expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).includes("/booth/join"))).toBe(false);
 });
 
 it("subscribes to a fund and renders the updated server cash", async () => {

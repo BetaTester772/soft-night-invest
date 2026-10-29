@@ -14,10 +14,6 @@ class Body(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class Join(Body):
-    nickname: str = Field(min_length=1, max_length=64)
-
-
 class Enroll(Body):
     round_id: RoundId
 
