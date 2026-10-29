@@ -170,20 +170,17 @@ def test_stock_change_is_relative_to_previous_published_tick(
     first_price = next(i for i in first_tick["instruments"] if i["code"] == "PANG")
     assert first_price["previous_price"] == 25_000
     assert first_price["price"] > 25_000
-    assert first_price["change_rate"] == (
-        first_price["price"] - 25_000
-    ) / 25_000
+    assert first_price["change_rate"] == (first_price["price"] - 25_000) / 25_000
 
     run(client, clock, 1, 0)
     second_tick = client.get("/api/booth/state").json()
     second_price = next(i for i in second_tick["instruments"] if i["code"] == "PANG")
     assert second_price["previous_price"] == first_price["price"]
-    assert second_price["change_rate"] == (
-        second_price["price"] - first_price["price"]
-    ) / first_price["price"]
-    assert second_price["return_rate"] == (
-        second_price["price"] - 25_000
-    ) / 25_000
+    assert (
+        second_price["change_rate"]
+        == (second_price["price"] - first_price["price"]) / first_price["price"]
+    )
+    assert second_price["return_rate"] == (second_price["price"] - 25_000) / 25_000
 
 
 def test_stock_change_is_zero_after_resume_without_new_price(

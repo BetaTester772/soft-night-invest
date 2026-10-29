@@ -67,6 +67,8 @@ export function boothState(enrolled = true): BoothState {
         sector: "사료·바이오",
         price: 10000,
         initial_price: 10000,
+        previous_price: 10000,
+        change_rate: 0,
         return_rate: 0,
         history: [
           { x: "2026-10-30T17:00:00+09:00", y: 10000 },
