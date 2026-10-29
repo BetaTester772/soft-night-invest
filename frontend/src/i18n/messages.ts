@@ -186,6 +186,7 @@ export const english: Record<string, string> = {
   " 장중 가격 이력": " intraday price history",
   "님의 이번 장 자산": "’s assets this round",
   "주문 가능 현금": "Available cash",
+  "최대 구매 가능 수량: {quantity}주 (현재가 기준)": "Maximum you can buy: {quantity} shares (at the current price)",
   "주식 평가액": "Stock value",
   "펀드 평가액": "Fund value",
   "내 공룡 계좌를 열어보세요.": "Open your dinosaur account.",
