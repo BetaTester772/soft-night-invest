@@ -46,6 +46,17 @@ class Control(Enroll):
     reason: str = Field(min_length=1, max_length=300)
 
 
+class OpenRound(Enroll):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    reason: str = Field(min_length=1, max_length=300)
+
+
+class CashGrant(OpenRound):
+    participant_id: Positive
+    amount: Annotated[int, Field(strict=True, ge=1, le=1_000_000_000)]
+    request_id: str = Field(min_length=8, max_length=80, pattern=r"^[A-Za-z0-9:_-]+$")
+
+
 class Incident(Enroll):
     sector: Literal["feed", "build", "space"]
     rate: float = Field(ge=-0.5, le=0.5, allow_inf_nan=False)

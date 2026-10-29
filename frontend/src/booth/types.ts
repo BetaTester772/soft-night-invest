@@ -77,6 +77,7 @@ export interface Me {
   round_id: number;
   enrolled: boolean;
   cash: number;
+  principal: number;
   stock_value: number;
   fund_value: number;
   total_assets: number;
@@ -148,6 +149,7 @@ export interface AdminStatus {
     participant_id: number;
     nickname: string;
     round_id: number;
+    cash: number;
     disqualified: boolean;
     reason: string | null;
   }[];

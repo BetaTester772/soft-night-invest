@@ -86,6 +86,33 @@ def open_round(s: Session, row: BoothRound, *, seed: str | None = None) -> None:
     audit(s, row.opens_at, "system", "booth.open", round_id=row.number)
 
 
+def open_now(s: Session, row: BoothRound, reason: str, now: datetime) -> None:
+    if row.state != "pending":
+        raise DomainError("INVALID_STATE", "아직 개장하지 않은 장만 열 수 있습니다.")
+    closes_at = now + (row.closes_at - row.opens_at)
+    others = s.scalars(select(BoothRound).where(BoothRound.number != row.number))
+    if any(
+        other.state != "closed" and other.opens_at < closes_at and now < other.closes_at
+        for other in others
+    ):
+        raise DomainError("ROUND_OVERLAP", "다른 장의 운영 시간과 겹칩니다.")
+    previous_opens_at, previous_closes_at = row.opens_at, row.closes_at
+    row.opens_at, row.closes_at = now, closes_at
+    open_round(s, row)
+    audit(
+        s,
+        now,
+        "admin",
+        "booth.open.manual",
+        round_id=row.number,
+        reason=reason,
+        previous_opens_at=previous_opens_at.isoformat(),
+        previous_closes_at=previous_closes_at.isoformat(),
+        opens_at=now.isoformat(),
+        closes_at=closes_at.isoformat(),
+    )
+
+
 def event_rates(
     s: Session,
     row: BoothRound,

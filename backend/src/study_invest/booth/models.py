@@ -74,6 +74,17 @@ class BoothOrder(Base):
     created_at: Mapped[datetime] = mapped_column(AwareDateTime())
 
 
+class BoothCashGrant(Base):
+    __tablename__ = "booth_cash_grants"
+    __table_args__ = (UniqueConstraint("account_id", "request_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("booth_accounts.id"), index=True)
+    request_id: Mapped[str] = mapped_column(String(80))
+    amount: Mapped[int] = mapped_column(BigInteger)
+    reason: Mapped[str] = mapped_column(String(300))
+    created_at: Mapped[datetime] = mapped_column(AwareDateTime())
+
+
 class BoothTick(Base):
     __tablename__ = "booth_ticks"
     round_id: Mapped[int] = mapped_column(ForeignKey("booth_rounds.number"), primary_key=True)

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from ..params import INITIAL_CASH, KST
 from ..services.common import DomainError
-from .accounts import assert_open, get_account, model_assets, stock_value, valuation
+from .accounts import assert_open, get_account, model_assets, principals, stock_value, valuation
 from .domain import FUNDS, INSTRUMENTS, SECTORS, fund_value, tick_seconds
 from .models import (
     BoothAccount,
@@ -70,6 +70,7 @@ def account_view(
         "round_id": row.number,
         "enrolled": account is not None,
         "cash": 0,
+        "principal": 0,
         "stock_value": 0,
         "fund_value": 0,
         "total_assets": 0,
@@ -112,6 +113,7 @@ def account_view(
                 }
             )
     total = valuation(account, row.prices, assets)
+    principal = principals(s, row).get(account.id, INITIAL_CASH)
     orders = s.scalars(
         select(BoothOrder)
         .where(BoothOrder.account_id == account.id)
@@ -121,10 +123,11 @@ def account_view(
     return dict(
         base,
         cash=account.cash,
+        principal=principal,
         stock_value=stock_value(account, row.prices),
         fund_value=int(total - account.cash - stock_value(account, row.prices)),
         total_assets=int(total),
-        return_rate=float((total - INITIAL_CASH) / INITIAL_CASH),
+        return_rate=float((total - principal) / principal),
         holdings=holdings,
         funds=funds,
         orders=[order_view(o) for o in orders],
@@ -139,6 +142,7 @@ def live_ranking(
 ) -> list[dict[str, Any]]:
     if assets is None:
         assets = model_assets(s, row)
+    bases = principals(s, row)
     # Project only ranking fields, avoiding a full ORM account per participant.
     records = s.execute(
         select(
@@ -166,10 +170,17 @@ def live_ranking(
         )
         value += sum(fund_value(int(h["units"]), assets[c]) for c, h in holdings.items())
         valued.append((value, first_trade, account_id, participant_id, nickname))
-    valued.sort(key=lambda r: (-r[0], r[1].timestamp() if r[1] else float("inf"), r[2]))
+    valued.sort(
+        key=lambda r: (
+            -Fraction(r[0], bases.get(r[2], INITIAL_CASH)),
+            r[1].timestamp() if r[1] else float("inf"),
+            r[2],
+        )
+    )
     entries = []
     award_rank = 0
-    for index, (value, first_trade, _, participant_id, nickname) in enumerate(valued, 1):
+    for index, (value, first_trade, account_id, participant_id, nickname) in enumerate(valued, 1):
+        principal = bases.get(account_id, INITIAL_CASH)
         eligible = first_trade is not None
         if eligible:
             award_rank += 1
@@ -180,7 +191,7 @@ def live_ranking(
                 "participant_id": participant_id,
                 "nickname": nickname,
                 "total_assets": int(value),
-                "return_rate": float((value - INITIAL_CASH) / INITIAL_CASH),
+                "return_rate": float((value - principal) / principal),
                 "eligible": eligible,
                 "first_trade_at": iso(first_trade),
             }

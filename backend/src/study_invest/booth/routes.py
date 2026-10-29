@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Response
@@ -20,10 +20,10 @@ from ..api.deps import (
 from ..clock import OffsetClock
 from ..models import Participant
 from ..services import auth
-from ..services.common import DomainError, audit
+from ..services.common import DomainError, audit, batch_lock
 from . import accounts, market, schemas, views
-from .domain import SECTORS, sessions
-from .models import BoothAccount, BoothParticipant, BoothResult
+from .domain import SECTORS
+from .models import BoothAccount, BoothParticipant, BoothResult, BoothRound
 from .views import latest_result
 
 router = APIRouter(prefix="/api/booth", route_class=SessionReleasingRoute, tags=["booth"])
@@ -35,10 +35,11 @@ admin = APIRouter(
 )
 
 
-def selected_id(rows: list[Any], now: Any) -> int:
+def selected_id(rows: list[BoothRound], now: datetime) -> int:
     active = next((r for r in rows if r.opens_at <= now < r.closes_at), None)
-    upcoming = next((r for r in rows if r.opens_at > now), None)
-    return (active or upcoming or rows[-1]).number  # type: ignore[no-any-return]
+    upcoming = min((r for r in rows if r.opens_at > now), key=lambda r: r.opens_at, default=None)
+    latest = max(rows, key=lambda r: r.closes_at)
+    return (active or upcoming or latest).number
 
 
 @router.get("/config")
@@ -164,6 +165,7 @@ def admin_status(state: StateDep, s: SessionDep) -> dict[str, Any]:
             "round_id": a.round_id,
             "disqualified": a.disqualified,
             "reason": a.reason,
+            "cash": a.cash,
         }
         for a in s.scalars(select(BoothAccount).where(BoothAccount.participant_id.is_not(None)))
     ]
@@ -181,6 +183,29 @@ def control(body: schemas.Control, state: StateDep, s: BatchSessionDep) -> dict[
     row = accounts.lock_round(s, body.round_id)
     market.control(s, row, body.action, body.reason, state.clock())
     result = views.round_view(row, state.clock())
+    s.commit()
+    return result
+
+
+@admin.post("/open")
+def open_now(body: schemas.OpenRound, state: StateDep, s: BatchSessionDep) -> dict[str, Any]:
+    batch_lock(s)
+    accounts.ensure_rounds(s, state.settings.booth_date)
+    row = accounts.lock_round(s, body.round_id)
+    now = state.clock()
+    market.open_now(s, row, body.reason, now)
+    result = views.round_view(row, now)
+    s.commit()
+    return dict(result, message="현재 시각부터 50분간 장을 열었습니다.")
+
+
+@admin.post("/grant")
+def grant_cash(body: schemas.CashGrant, state: StateDep, s: BatchSessionDep) -> dict[str, Any]:
+    row = accounts.lock_round(s, body.round_id)
+    account = accounts.grant_cash(
+        s, row, body.participant_id, body.amount, body.request_id, body.reason, state.clock()
+    )
+    result = {"message": "지원금을 지급했습니다.", "cash": account.cash}
     s.commit()
     return result
 
@@ -310,10 +335,15 @@ def qa_step(body: schemas.Step, state: StateDep) -> dict[str, Any]:
 def qa_next(state: StateDep) -> dict[str, Any]:
     clock = qa_clock(state)
     now = clock()
-    upcoming = next((r for r in sessions(state.settings.booth_date) if r.opens_at > now), None)
+    with state.batch_session_factory() as s:
+        rows = accounts.ensure_rounds(s, state.settings.booth_date)
+        upcoming = min(
+            (r.opens_at for r in rows if r.state == "pending" and r.opens_at > now), default=None
+        )
+        s.commit()
     if upcoming is None:
         raise DomainError("NO_NEXT_ROUND", "다음 장이 없습니다.")
-    clock.jump_to(upcoming.opens_at)
+    clock.jump_to(upcoming)
     results = market.run_due(state.batch_session_factory, clock(), state.settings.booth_date)
     return {"now": views.iso(clock()), "results": results}
 

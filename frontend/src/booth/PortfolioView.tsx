@@ -42,7 +42,7 @@ export function PortfolioView({
             {t("{nickname} 님의 {round}장 · {era} 포트폴리오", { nickname: me.nickname, round: data.round.id, era: data.round.era })}
           </p>
         </div>
-        <span className={styles.pill}>{t("장 시작 시드 1,000,000원")}</span>
+        <span className={styles.pill}>{t("투자 원금 {amount}", { amount: won(me.principal) })}</span>
       </div>
       <section className={styles.panel + " " + styles.portfolio}>
         <h2>{t("내 자산")}{" "}
@@ -62,7 +62,7 @@ export function PortfolioView({
           <div>
             <small>{t("이번 장 투자 손익")}</small>
             <strong className={styles[tone(me.return_rate)]}>
-              {won(me.total_assets - 1_000_000)}
+              {won(me.total_assets - me.principal)}
             </strong>
           </div>
         </div>

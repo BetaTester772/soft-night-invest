@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..booth.domain import sessions
+from ..booth.accounts import ensure_rounds
 from ..clock import ScaledClock
 from ..event_calendar import EventCalendar, to_kst
 from ..instruments import BY_CODE, INSTRUMENTS
@@ -252,12 +252,17 @@ def send_code(
     )
 
 
-def registration_calendar(state: AppState, now: datetime) -> EventCalendar:
+def registration_calendar(state: AppState, now: datetime, s: Session) -> EventCalendar:
     if state.settings.event_mode != "booth":
         return state.calendar
-    if now >= sessions(state.settings.booth_date)[-1].closes_at:
+    rows = ensure_rounds(s, state.settings.booth_date)
+    closes_at = max(row.closes_at for row in rows)
+    if now >= closes_at:
         raise DomainError("REGISTRATION_CLOSED", "이벤트가 종료되어 참가 신청을 받지 않습니다.")
-    return EventCalendar(start=state.settings.booth_date, end=state.settings.booth_date)
+    return EventCalendar(
+        start=state.settings.booth_date,
+        end=max(state.settings.booth_date, to_kst(closes_at).date()),
+    )
 
 
 @router.post(
@@ -274,7 +279,7 @@ def request_email_code(
     real_now: RealNowDep,
 ) -> schemas.EmailCodeResponse:
     """학교 메일로 6자리 인증 코드를 보낸다(참가 신청·미인증 계정의 인증 공용)."""
-    auth.ensure_registration_open(now, registration_calendar(state, now))
+    auth.ensure_registration_open(now, registration_calendar(state, now, s))
     return send_code(state, s, body.email, real_now, CodePurpose.VERIFY)
 
 
@@ -287,7 +292,7 @@ def request_email_code(
 def register(
     body: schemas.RegisterRequest, state: StateDep, s: SessionDep, now: NowDep, real_now: RealNowDep
 ) -> schemas.AuthResponse:
-    auth.ensure_registration_open(now, registration_calendar(state, now))
+    auth.ensure_registration_open(now, registration_calendar(state, now, s))
     auth.ensure_privacy_consent(body.privacy_consent)
     # 코드가 있으면 확인해 인증된 채로 가입한다. 메일 인증을 켠 운영이면 코드가 꼭 있어야 한다.
     # 끈 운영(기본)이면 주소만 받아 미인증으로 가입한다(나중에 메일 코드나 관리자가 인증).
@@ -307,7 +312,7 @@ def register(
         body.nickname,
         body.password,
         now,
-        registration_calendar(state, now),
+        registration_calendar(state, now, s),
         verified=verify,
     )
     s.commit()

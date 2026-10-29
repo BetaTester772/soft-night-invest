@@ -1,12 +1,12 @@
 import { t, useLanguage } from "../i18n";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { onUnauthorized } from "../api/client";
 import { adminKeyStore } from "../api/storage";
 import { useApi } from "../api/useApi";
 import { Button, TextField } from "../components/ui";
 import { AuditTab } from "../pages/Admin/AuditTab";
 import { boothApi } from "./api";
-import { time } from "./format";
+import { time, won } from "./format";
 import type { BoothConfig } from "./types";
 import styles from "./Booth.module.css";
 
@@ -19,6 +19,9 @@ export function AdminView({ config }: { config: BoothConfig }) {
   const [roundId, setRoundId] = useState(1);
   const [participant, setParticipant] = useState("");
   const [cashAmount, setCashAmount] = useState("1000000");
+  const [grantAmount, setGrantAmount] = useState("100000");
+  const grantRequest = useRef<{ signature: string; id: string } | null>(null);
+  const inFlight = useRef(false);
   const [reason, setReason] = useState("");
   const [headline, setHeadline] = useState("");
   const [sector, setSector] = useState("feed");
@@ -41,19 +44,33 @@ export function AdminView({ config }: { config: BoothConfig }) {
     [],
   );
   async function action(name: string, body?: unknown) {
-    if (busy) return;
+    if (inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setMessage("");
     try {
+      let payload = body;
+      if (name === "grant") {
+        const signature = JSON.stringify(body);
+        if (grantRequest.current?.signature !== signature) {
+          grantRequest.current = { signature, id: crypto.randomUUID() };
+        }
+        payload = { ...(body as object), request_id: grantRequest.current.id };
+      }
       const result = await boothApi.admin<{ message?: string }>(
         name,
-        body,
+        payload,
       );
+      if (name === "grant") {
+        grantRequest.current = null;
+        setGrantAmount("");
+      }
       setMessage(result?.message ?? "처리했습니다.");
       await status.refetch();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "처리하지 못했습니다.");
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   }
@@ -86,6 +103,8 @@ export function AdminView({ config }: { config: BoothConfig }) {
   const result = status.data?.results.find((r) => r.round_id === roundId);
   const people =
     status.data?.participants.filter((p) => p.round_id === roundId) ?? [];
+  const selectedPerson = people.find((p) => p.participant_id === Number(participant));
+  const amount = Number(grantAmount);
   return (
     <>
       <div className={styles.sectionTop}>
@@ -118,6 +137,7 @@ export function AdminView({ config }: { config: BoothConfig }) {
           <h2>{t("장 운영")}</h2>
           <label>{t("운영할 장")}{" "}<select
               value={roundId}
+              disabled={busy}
               onChange={(e) => {
                 setRoundId(Number(e.target.value));
                 setParticipant("");
@@ -139,11 +159,20 @@ export function AdminView({ config }: { config: BoothConfig }) {
           <TextField
             label={t("운영 사유")}
             value={reason}
+            disabled={busy}
             onChange={(e) => setReason(e.target.value)}
             maxLength={300}
           />
           <div className={styles.actions}>
-            <Button disabled={busy} onClick={() => void action("run")}>{t("스케줄러 지금 확인")}</Button>
+            <Button
+              disabled={busy || selected?.state !== "pending" || !reason.trim()}
+              onClick={() => void action("open", { round_id: roundId, reason })}
+            >
+              {t("지금 개장")}
+            </Button>
+            <Button disabled={busy} onClick={() => void action("run")}>
+              {t("스케줄러 지금 확인")}
+            </Button>
             <Button
               disabled={busy || selected?.state !== "open" || !reason.trim()}
               onClick={() =>
@@ -169,7 +198,12 @@ export function AdminView({ config }: { config: BoothConfig }) {
               {t("거래 재개")}
             </Button>
           </div>
-          <p className={styles.muted}>{t("재개하면 지난 구간은 건너뛰고 마지막 공개 가격부터 이어갑니다. 마감 시각은 바뀌지 않습니다.")}</p>
+          <p className={styles.muted}>
+            {t("지금 개장하면 선택한 장을 현재 시각부터 50분간 엽니다. 다른 장과 시간이 겹치면 열 수 없습니다.")}
+          </p>
+          <p className={styles.muted}>
+            {t("재개하면 지난 구간은 건너뛰고 마지막 공개 가격부터 이어갑니다. 마감 시각은 바뀌지 않습니다.")}
+          </p>
           {config.qa_tools && (
             <div className={styles.actions}>
               <Button
@@ -244,6 +278,7 @@ export function AdminView({ config }: { config: BoothConfig }) {
           <h2>{t("참가자 관리")}</h2>
           <label>{t("참가자")}{" "}<select
               value={participant}
+              disabled={busy}
               onChange={(e) => setParticipant(e.target.value)}
             >
               <option value="">{t("참가자를 선택하세요")}</option>
@@ -255,6 +290,35 @@ export function AdminView({ config }: { config: BoothConfig }) {
               ))}
             </select>
           </label>
+          {selectedPerson && <p>{t("현재 현금 {amount}", { amount: won(selectedPerson.cash) })}</p>}
+          <TextField
+            label={t("지급 금액 (원)")}
+            type="number"
+            min={1}
+            max={1000000000}
+            step={1}
+            value={grantAmount}
+            disabled={busy}
+            onChange={(e) => setGrantAmount(e.target.value)}
+          />
+          <Button
+            disabled={
+              busy || !selectedPerson || selectedPerson.disqualified ||
+              !selected || selected.state === "closed" || !reason.trim() ||
+              !Number.isSafeInteger(amount) || amount < 1 || amount > 1000000000
+            }
+            onClick={() => void action("grant", {
+              round_id: roundId,
+              participant_id: Number(participant),
+              amount,
+              reason,
+            })}
+          >
+            {t("지원금 지급")}
+          </Button>
+          <p className={styles.muted}>
+            {t("선택한 참가자의 이 장 계좌에 지급합니다. 지급금은 투자 원금에 포함되며, 지급 자체로 수익률이 오르지 않습니다. 운영 사유를 입력하세요.")}
+          </p>
           <div className={styles.actions}>
             <Button
               disabled={busy || !participant || !reason.trim()}
