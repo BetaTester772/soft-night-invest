@@ -52,7 +52,9 @@ export default function () {
   if (!token) {
     const member = http.post(BASE + '/api/auth/register', JSON.stringify({
       email: `stress${__ENV.RUN_ID}_${__VU}@g.skku.edu`,
-      name: '부하검사 참가자', student_id: String(__VU).padStart(10, '0'),
+      // Seven run-specific digits plus three VU digits (profiles use at most 400 VUs).
+      name: '부하검사 참가자',
+      student_id: String(Number(__ENV.RUN_ID) % 10000000).padStart(7, '0') + String(__VU).padStart(3, '0'),
       department: '소프트웨어학과', nickname: `stress${__ENV.RUN_ID}_${__VU}`,
       password: 'tiger-moon-river-42', privacy_consent: true,
     }), {headers});
