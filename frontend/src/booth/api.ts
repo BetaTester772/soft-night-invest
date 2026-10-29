@@ -17,11 +17,6 @@ export const boothApi = {
       credential,
     }),
   session: (credential: string) => request<{ token: string }>("/booth/session", { method: "POST", auth: "participant", credential }),
-  join: (nickname: string) =>
-    request<{ token: string; participant: { id: number; nickname: string } }>(
-      "/booth/join",
-      { method: "POST", body: { nickname } },
-    ),
   enroll: (roundId: number, credential?: string | null) =>
     request<Me>("/booth/enroll", {
       method: "POST",

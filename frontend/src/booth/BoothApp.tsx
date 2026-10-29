@@ -1,6 +1,6 @@
 import { t, useLanguage, useDocumentLanguage } from "../i18n";
 import { useEffect, useRef, useState } from "react";
-import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { Link, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "../auth/AuthContext";
 import { LoginPage } from "../pages/Auth/LoginPage";
 import { RegisterPage } from "../pages/Auth/RegisterPage";
@@ -10,9 +10,7 @@ import { boothIdentityStore, boothTokenStore, tokenStore } from "../api/storage"
 import { useApi } from "../api/useApi";
 import {
   Button,
-  Modal,
   Skeleton,
-  TextField,
   ToastProvider,
 } from "../components/ui";
 import { boothApi } from "./api";
@@ -68,6 +66,7 @@ function BoothShell({ config }: { config: BoothConfig }) {
   useLanguage();
   const auth = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const broadcast = location.pathname === "/broadcast";
   const admin = location.pathname === "/admin";
   const [linkAttempt, setLinkAttempt] = useState(0);
@@ -77,10 +76,6 @@ function BoothShell({ config }: { config: BoothConfig }) {
   const sessionGeneration = useRef(0);
   const tokenRef = useRef(token);
   const [selected, setSelected] = useState<number>();
-  const [joinOpen, setJoinOpen] = useState(false);
-  const [nickname, setNickname] = useState("");
-  const [recovery, setRecovery] = useState("");
-  const [joinBusy, setJoinBusy] = useState(false);
   const [error, setError] = useState("");
   const [target, setTarget] = useState<TradeTarget | null>(null);
   const state = useApi(
@@ -99,8 +94,6 @@ function BoothShell({ config }: { config: BoothConfig }) {
     if (persist) boothTokenStore.set(next);
     setToken(next);
     setTarget(null);
-    setJoinOpen(false);
-    setJoinBusy(false);
     setError("");
   }
   useEffect(() => {
@@ -173,24 +166,8 @@ function BoothShell({ config }: { config: BoothConfig }) {
   useEffect(() => {
     if (target && data && target.round_id !== data.round.id) setTarget(null);
   }, [target, data]);
-  async function join(e: React.FormEvent) {
-    e.preventDefault();
-    if (joinBusy) return;
-    const generation = ++sessionGeneration.current;
-    const expected = tokenRef.current;
-    setJoinBusy(true);
-    setError("");
-    try {
-      const result = await boothApi.join(nickname);
-      if (isCurrent(generation, expected)) activateSession(result.token);
-      else syncSession();
-    } catch (err) {
-      if (isCurrent(generation, expected))
-        setError(err instanceof Error ? err.message : "참가하지 못했습니다.");
-      else syncSession();
-    } finally {
-      if (generation === sessionGeneration.current) setJoinBusy(false);
-    }
+  function requireRegistration() {
+    navigate("/register", { state: { from: location.pathname } });
   }
   async function enroll() {
     if (!data) return;
@@ -218,7 +195,7 @@ function BoothShell({ config }: { config: BoothConfig }) {
       return;
     }
     if (!data?.me) {
-      setJoinOpen(true);
+      requireRegistration();
       return;
     }
     if (!data.me.enrolled) {
@@ -306,7 +283,7 @@ function BoothShell({ config }: { config: BoothConfig }) {
                 <Button
                   size="sm"
                   className={styles.solid}
-                  onClick={() => setJoinOpen(true)}
+                  onClick={() => requireRegistration()}
                 >
                   {t("참가하기")}
                 </Button>
@@ -319,7 +296,7 @@ function BoothShell({ config }: { config: BoothConfig }) {
         {config.qa_tools && (
           <div className={styles.qaBanner}>{t("테스트 운영 모드 · 실제 행사 시각과 다를 수 있습니다.")}</div>
         )}
-        {error && !joinOpen && (
+        {error && (
           <div role="alert" className={styles.errorBanner}>
             {t(error)}
             {auth.status === "authenticated" &&
@@ -476,7 +453,7 @@ function BoothShell({ config }: { config: BoothConfig }) {
                   <PortfolioView
                     data={data}
                     onTrade={trade}
-                    onJoin={() => setJoinOpen(true)}
+                    onJoin={() => requireRegistration()}
                     onEnroll={enroll}
                   />
                 }
@@ -518,57 +495,7 @@ function BoothShell({ config }: { config: BoothConfig }) {
           <Link to="/admin">{t("운영자")}</Link>
         </footer>
       </main>
-      <Modal
-        open={joinOpen}
-        onClose={() => {
-          if (!joinBusy) setJoinOpen(false);
-        }}
-        title={t("거래소 참가")}
-        description={t("닉네임으로 입장하고 가상 시드 100만원을 받아보세요.")}
-      >
-        <form onSubmit={join} className={styles.form}>
-          <TextField
-            label={t("닉네임")}
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            maxLength={32}
-            required
-            disabled={joinBusy}
-          />
-          <p className={styles.muted}>{t("같은 브라우저로 돌아오면 계좌가 이어집니다. 기기를 바꾸면 운영자에게 계좌 복구를 요청하세요.")}</p>
-          {error && (
-            <p role="alert" className={styles.error}>
-              {t(error)}
-            </p>
-          )}
-          <Button
-            type="submit"
-            fullWidth
-            loading={joinBusy}
-            className={styles.solid}
-          >
-            {t("거래소 입장하기")}
-          </Button>
-        </form>
-        <details className={styles.recovery}>
-          <summary>{t("운영자에게 복구 토큰을 받았나요?")}</summary>
-          <TextField
-            label={t("복구 토큰")}
-            value={recovery}
-            onChange={(e) => setRecovery(e.target.value)}
-            type="password"
-            disabled={joinBusy}
-          />
-          <Button
-            disabled={joinBusy || !recovery.trim()}
-            onClick={() => {
-              if (!joinBusy) activateSession(recovery.trim());
-            }}
-          >
-            {t("계좌 복구하기")}
-          </Button>
-        </details>
-      </Modal>
+
     </div>
   );
 }

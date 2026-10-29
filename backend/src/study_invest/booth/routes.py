@@ -6,7 +6,7 @@ from datetime import timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Response
-from sqlalchemy import delete, select
+from sqlalchemy import select
 
 from ..api.deps import (
     BatchSessionDep,
@@ -23,7 +23,7 @@ from ..services import auth
 from ..services.common import DomainError, audit
 from . import accounts, market, schemas, views
 from .domain import SECTORS, sessions
-from .models import BoothAccount, BoothParticipant, BoothResult, BoothToken
+from .models import BoothAccount, BoothParticipant, BoothResult
 from .views import latest_result
 
 router = APIRouter(prefix="/api/booth", route_class=SessionReleasingRoute, tags=["booth"])
@@ -69,17 +69,6 @@ def state_info(
     result = views.snapshot(s, rows, row, person, now)
     s.commit()
     return result
-
-
-@router.post("/join", status_code=201)
-def join(body: schemas.Join, state: StateDep, s: SessionDep) -> dict[str, Any]:
-    rows = accounts.ensure_rounds(s, state.settings.booth_date)
-    now = state.clock()
-    person, token = accounts.register(s, body.nickname, now, state.settings.booth_date)
-    row = accounts.lock_round(s, selected_id(rows, now))
-    accounts.enroll(s, row, person, state.clock())
-    s.commit()
-    return {"token": token, "participant": {"id": person.id, "nickname": person.nickname}}
 
 
 @router.post("/session")
@@ -293,20 +282,6 @@ def confirm(body: schemas.Confirm, state: StateDep, s: BatchSessionDep) -> dict[
     )
     s.commit()
     return views.result_view(result) or {}
-
-
-@admin.post("/recover")
-def recover(body: schemas.Recover, state: StateDep, s: BatchSessionDep) -> dict[str, str]:
-    person = s.scalar(
-        select(BoothParticipant).where(BoothParticipant.id == body.participant_id).with_for_update()
-    )
-    if person is None:
-        raise DomainError("PARTICIPANT_NOT_FOUND", "없는 참가자입니다.", 404)
-    s.execute(delete(BoothToken).where(BoothToken.participant_id == person.id))
-    token = accounts.issue_token(s, person, state.clock())
-    audit(s, state.clock(), "admin", "booth.recover", participant_id=person.id, reason=body.reason)
-    s.commit()
-    return {"token": token}
 
 
 def qa_clock(state: Any) -> OffsetClock:

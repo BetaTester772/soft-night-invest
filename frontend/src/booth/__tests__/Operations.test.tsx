@@ -52,3 +52,22 @@ it("asks the operator to configure a URL instead of showing localhost QR", async
     screen.queryByRole("img", { name: "참가 QR 코드" }),
   ).not.toBeInTheDocument();
 });
+
+it("guides account recovery through password reset instead of unusable tokens", async () => {
+  const { AdminView } = await import("../AdminView");
+  const { adminKeyStore } = await import("../../api/storage");
+  adminKeyStore.set("test-admin");
+  vi.stubGlobal("fetch", vi.fn(async (input: string) => new Response(JSON.stringify(
+    input.includes("/booth/admin/status")
+      ? { rounds: boothState().rounds, participants: [], results: [] }
+      : []
+  ))));
+  try {
+    render(<MemoryRouter><AdminView config={config} /></MemoryRouter>);
+    expect(await screen.findByRole("link", { name: "비밀번호 재설정" })).toHaveAttribute("href", "/reset-password");
+    expect(screen.queryByRole("button", { name: "현장 확인 후 계좌 복구" })).not.toBeInTheDocument();
+    expect(screen.queryByText("새 복구 토큰")).not.toBeInTheDocument();
+  } finally {
+    adminKeyStore.set(null);
+  }
+});

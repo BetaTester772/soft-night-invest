@@ -221,66 +221,6 @@ it("blocks a stale account trade even before the storage event arrives", async (
   expect(await screen.findByText("Account B 님")).toBeInTheDocument();
 });
 
-it("disables recovery while a join is pending", async () => {
-  boothTokenStore.set(null);
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (input: string) => {
-      if (input.includes("/join")) return new Promise<Response>(() => {});
-      return stateFor();
-    }),
-  );
-  page();
-  fireEvent.click(await screen.findByRole("button", { name: "참가하기" }));
-  fireEvent.change(screen.getByRole("textbox", { name: /닉네임/ }), {
-    target: { value: "Account A" },
-  });
-  fireEvent.submit(
-    screen.getByRole("button", { name: "거래소 입장하기" }).closest("form")!,
-  );
-  fireEvent.change(screen.getByLabelText("복구 토큰"), {
-    target: { value: "account-B" },
-  });
-  expect(
-    screen.getByRole("button", { name: "계좌 복구하기", hidden: true }),
-  ).toBeDisabled();
-});
-
-it("ignores a late join response after another account is restored", async () => {
-  boothTokenStore.set(null);
-  let finishJoin!: (value: Response) => void;
-  const pending = new Promise<Response>((resolve) => {
-    finishJoin = resolve;
-  });
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (input: string, init?: RequestInit) => {
-      if (input.includes("/join")) return pending;
-      return stateFor((init?.headers as Record<string, string>)?.Authorization);
-    }),
-  );
-  page();
-  fireEvent.click(await screen.findByRole("button", { name: "참가하기" }));
-  fireEvent.change(screen.getByRole("textbox", { name: /닉네임/ }), {
-    target: { value: "Account A" },
-  });
-  fireEvent.submit(
-    screen.getByRole("button", { name: "거래소 입장하기" }).closest("form")!,
-  );
-  await act(async () => switchAccount());
-  expect(await screen.findByText("Account B 님")).toBeInTheDocument();
-  await act(async () =>
-    finishJoin(
-      response({
-        token: "account-A",
-        participant: { id: 1, nickname: "Account A" },
-      }),
-    ),
-  );
-  expect(boothTokenStore.get()).toBe("account-B");
-  expect(screen.getByText("Account B 님")).toBeInTheDocument();
-});
-
 it("ignores a late logout response from a superseded session", async () => {
   boothTokenStore.set("account-A");
   let finishLogout!: (value: Response) => void;

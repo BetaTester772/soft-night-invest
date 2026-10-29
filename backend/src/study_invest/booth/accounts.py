@@ -83,6 +83,8 @@ def participant_for(
 ) -> BoothParticipant | None:
     record = s.get(BoothToken, token_hash(token)) if token else None
     person = s.get(BoothParticipant, record.participant_id) if record else None
+    if person is not None and person.study_participant_id is None:
+        raise DomainError("UNAUTHORIZED", "회원가입 후 로그인해 주세요.", 401)
     if (token or required) and person is None:
         raise DomainError(
             "UNAUTHORIZED", "참가 정보가 만료됐습니다. 다시 참가하거나 운영자에게 문의하세요.", 401

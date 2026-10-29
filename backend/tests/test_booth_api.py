@@ -8,8 +8,19 @@ ADMIN = {"X-Admin-Key": ADMIN_KEY}
 
 
 def join(client: TestClient, nickname: str = "김공룡") -> dict[str, str]:
-    response = client.post("/api/booth/join", json={"nickname": nickname})
+    import hashlib
+    from dataclasses import replace
+
+    from conftest import register_with
+
+    state = client.app.state.study_invest  # type: ignore[attr-defined]
+    state.settings = replace(state.settings, event_mode="booth")
+    email = hashlib.sha256(nickname.encode()).hexdigest()[:12] + "@g.skku.edu"
+    response = register_with(client, email, nickname)
     assert response.status_code == 201, response.text
+    identity = {"Authorization": "Bearer " + response.json()["token"]}
+    response = client.post("/api/booth/session", headers=identity)
+    assert response.status_code == 200, response.text
     return {"Authorization": "Bearer " + response.json()["token"]}
 
 
@@ -31,7 +42,7 @@ def buy_payload(request_id: str = "test-order-001", **changes: object) -> dict[s
     )
 
 
-def test_public_state_and_nickname_only_participation(client: TestClient, clock: Clock) -> None:
+def test_public_state_and_registered_participation(client: TestClient, clock: Clock) -> None:
     clock.set(DAY, time(15, 59))
     response = client.get("/api/booth/state")
     assert response.status_code == 200, response.text
@@ -44,8 +55,8 @@ def test_public_state_and_nickname_only_participation(client: TestClient, clock:
     data = client.get("/api/booth/state", headers=headers).json()
     assert data["me"]["cash"] == 1_000_000
     assert data["me"]["nickname"] == "김공룡"
-    assert client.post("/api/booth/join", json={"nickname": "김공룡"}).status_code == 409
-    assert client.post("/api/booth/join", json={"nickname": "   "}).status_code == 422
+    assert client.post("/api/booth/join", json={"nickname": "김공룡"}).status_code == 404
+    assert client.post("/api/booth/session").status_code == 401
 
 
 def test_enrollment_is_idempotent_and_tokens_are_required(client: TestClient, clock: Clock) -> None:
@@ -124,7 +135,7 @@ def test_fund_purchase_and_redemption_preserve_cash(client: TestClient, clock: C
     assert response.json()["me"]["fund_value"] == 0
 
 
-def test_admin_requires_key_and_recovery_invalidates_old_token(
+def test_admin_requires_key_and_obsolete_recovery_is_unavailable(
     client: TestClient,
     clock: Clock,
 ) -> None:
@@ -137,10 +148,8 @@ def test_admin_requires_key_and_recovery_invalidates_old_token(
         json={"participant_id": participant, "reason": "현장 본인 확인"},
         headers=ADMIN,
     )
-    assert response.status_code == 200, response.text
-    assert client.get("/api/booth/state", headers=headers).status_code == 401
-    new_headers = {"Authorization": "Bearer " + response.json()["token"]}
-    assert client.get("/api/booth/state", headers=new_headers).status_code == 200
+    assert response.status_code == 404, response.text
+    assert client.get("/api/booth/state", headers=headers).status_code == 200
 
 
 def test_existing_login_reopens_same_booth_account(client: TestClient, clock: Clock) -> None:
@@ -196,11 +205,14 @@ def test_linked_login_skips_all_occupied_fallback_nicknames(
     clock.set(DAY, time(15, 59))
     occupied = ["alice", f"alice·계정{person_id}", f"alice·계정{person_id}-1"]
     old_ids = []
+    from study_invest.booth import accounts
+
+    state = client.app.state.study_invest  # type: ignore[attr-defined]
     for name in occupied:
-        headers = join(client, name)
-        old_ids.append(
-            client.get("/api/booth/state", headers=headers).json()["me"]["participant_id"]
-        )
+        with state.session_factory() as session:
+            person, _ = accounts.register(session, name, clock(), DAY)
+            old_ids.append(person.id)
+            session.commit()
     response = client.post("/api/booth/session", headers=study_headers)
     assert response.status_code == 200, response.text
     headers = {"Authorization": "Bearer " + response.json()["token"]}
@@ -250,3 +262,47 @@ def test_password_reset_revokes_all_linked_booth_tokens(
     new_headers = {"Authorization": "Bearer " + linked.json()["token"]}
     new_account = client.get("/api/booth/state", headers=new_headers).json()["me"]
     assert new_account == old_account
+
+
+def test_booth_signup_uses_booth_date_and_requires_registration(
+    client: TestClient, clock: Clock
+) -> None:
+    from dataclasses import replace
+
+    from conftest import register_with
+
+    from study_invest.booth import accounts
+
+    state = client.app.state.study_invest  # type: ignore[attr-defined]
+    state.settings = replace(state.settings, event_mode="booth")
+    clock.set(DAY, time(15, 59))
+    assert client.post("/api/booth/join", json={"nickname": "우회"}).status_code == 404
+    assert client.post("/api/booth/session").status_code == 401
+    with state.session_factory() as session:
+        _, legacy_token = accounts.register(session, "예전참가자", clock(), DAY)
+        session.commit()
+    legacy = {"Authorization": "Bearer " + legacy_token}
+    assert client.get("/api/booth/state", headers=legacy).status_code == 401
+    assert client.post("/api/booth/enroll", json={"round_id": 1}, headers=legacy).status_code == 401
+    response = register_with(client, "newmember@g.skku.edu", "새회원")
+    assert response.status_code == 201, response.text
+    identity = {"Authorization": "Bearer " + response.json()["token"]}
+    linked = client.post("/api/booth/session", headers=identity)
+    assert linked.status_code == 200, linked.text
+    headers = {"Authorization": "Bearer " + linked.json()["token"]}
+    assert client.get("/api/booth/state", headers=headers).json()["me"]["cash"] == 1_000_000
+    clock.set(DAY, time(20, 20))
+    response = client.post(
+        "/api/auth/register",
+        json={
+            "email": "late@g.skku.edu",
+            "nickname": "늦은회원",
+            "password": "tiger-moon-river-42",
+            "name": "홍길동",
+            "student_id": "2026000123",
+            "department": "소프트웨어학과",
+            "privacy_consent": True,
+        },
+    )
+    assert response.status_code == 409, response.text
+    assert response.json()["detail"]["code"] == "REGISTRATION_CLOSED"

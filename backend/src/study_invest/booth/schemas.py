@@ -14,10 +14,6 @@ class Body(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
-class Join(Body):
-    nickname: str = Field(min_length=1, max_length=64)
-
-
 class Enroll(Body):
     round_id: RoundId
 
@@ -73,11 +69,6 @@ class Confirm(Enroll):
 
 class Step(Body):
     seconds: Annotated[int, Field(strict=True, ge=1, le=TICK_SECONDS)]
-
-
-class Recover(Body):
-    participant_id: Positive
-    reason: str = Field(min_length=1, max_length=300)
 
 
 class GrantCash(Disqualify):

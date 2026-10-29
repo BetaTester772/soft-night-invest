@@ -108,6 +108,7 @@ def client(
 ) -> Iterator[TestClient]:
     settings = Settings(
         database_url=TEST_DB_URL,
+        event_mode="study",
         admin_key=ADMIN_KEY,
         upload_dir=tmp_path / "uploads",
         auto_create_schema=True,
