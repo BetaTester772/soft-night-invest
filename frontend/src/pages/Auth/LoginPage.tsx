@@ -5,8 +5,10 @@ import { useAuth } from '../../auth/AuthContext';
 import { Alert, Button, Card, Container, PageHeader, Stack, Text, TextField, useToast } from '../../components/ui';
 import { useScrollToFormError } from '../../lib/useScrollToFormError';
 import { useTurnstile } from '../../lib/turnstile';
+import { t, useLanguage } from '../../i18n';
 
 export function LoginPage() {
+  useLanguage();
   const { login, status } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -33,7 +35,7 @@ export function LoginPage() {
     setError(null);
     try {
       const p = await login(identity.trim(), password, await turnstile.take());
-      toast.success(`${p.nickname}님, 반갑습니다`);
+      toast.success(t('{nickname}님, 반갑습니다', { nickname: p.nickname }));
       navigate(from, { replace: true });
     } catch (err) {
       setError(
@@ -49,14 +51,14 @@ export function LoginPage() {
 
   return (
     <Container size="sm">
-      <PageHeader title="로그인" description="참가 신청할 때 등록한 학번으로 로그인하세요." />
+      <PageHeader title={t('로그인')} description={t('참가 신청할 때 등록한 학번으로 로그인하세요.')} />
       <Card>
         <form ref={formRef} onSubmit={onSubmit} noValidate>
           <Stack gap={4}>
-            {error && <Alert tone="danger">{error}</Alert>}
+            {error && <Alert tone="danger">{t(error)}</Alert>}
             <TextField
-              label="학번"
-              hint="숫자 10자리. 학교 메일 주소로도 로그인할 수 있습니다."
+              label={t('학번')}
+              hint={t('숫자 10자리. 학교 메일 주소로도 로그인할 수 있습니다.')}
               placeholder="2026310000"
               autoComplete="username"
               value={identity}
@@ -64,7 +66,7 @@ export function LoginPage() {
               required
             />
             <TextField
-              label="비밀번호"
+              label={t('비밀번호')}
               type="password"
               autoComplete="current-password"
               value={password}
@@ -80,15 +82,15 @@ export function LoginPage() {
               loading={submitting && !turnstile.waiting}
               disabled={turnstile.waiting}
             >
-              {turnstile.waiting ? '보안 확인을 기다리는 중' : '로그인하기'}
+              {t(turnstile.waiting ? '보안 확인을 기다리는 중' : '로그인하기')}
             </Button>
             <Text size="sm" tone="muted">
-              비밀번호를 잊었나요? <Link to="/reset-password">학교 메일로 재설정하기</Link>
+              {t('비밀번호를 잊었나요?')} <Link to="/reset-password">{t('학교 메일로 재설정하기')}</Link>
             </Text>
             <Text size="sm" tone="muted">
-              아직 참가하지 않았나요?{' '}
+              {t('아직 참가하지 않았나요?')}{' '}
               <Link to="/register" state={location.state}>
-                참가 신청하기
+                {t('참가 신청하기')}
               </Link>
             </Text>
           </Stack>

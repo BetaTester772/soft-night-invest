@@ -1,8 +1,10 @@
 import { act, render, screen } from '@testing-library/react';
 import { useTurnstile, type Turnstile } from '../turnstile';
+import { setLanguage } from '../../i18n';
 
 interface Widget {
   action: string;
+  language?: string;
   callback?: (t: string) => void;
   'error-callback'?: (code: string) => void;
   'before-interactive-callback'?: () => void;
@@ -35,6 +37,43 @@ afterEach(() => {
 });
 
 describe('useTurnstile', () => {
+  it('uses the selected language for security checks and recreates the widget on a language change', async () => {
+    setLanguage('en');
+    const { api, widgets } = fakeTurnstile();
+    render(<Harness siteKey="site" />);
+    await act(async () => {});
+    expect(widgets[0]!.language).toBe('en');
+    let pending!: Promise<string | undefined>;
+    act(() => { pending = hook.take(); });
+    expect(screen.getByRole('status')).toHaveTextContent('Checking security. Please wait.');
+    act(() => widgets[0]!['before-interactive-callback']?.());
+    expect(screen.getByRole('status')).toHaveTextContent('Click the security checkbox.');
+    act(() => widgets[0]!['error-callback']?.('110200'));
+    await expect(pending).rejects.toMatchObject({ message: '보안 확인 중 오류가 났습니다(110200). 페이지를 새로고침한 뒤 다시 시도해 주세요.' });
+    expect(screen.getByRole('alert')).toHaveTextContent('Security check failed (110200).');
+    await act(async () => setLanguage('ko'));
+    expect(api.remove).toHaveBeenCalledWith('w1');
+    expect(widgets[1]!.language).toBe('ko');
+    expect(screen.queryByRole('alert')).toBeNull();
+    act(() => widgets[1]!.callback?.('new-token'));
+    await expect(hook.take()).resolves.toBe('new-token');
+  });
+
+  it('continues a pending security check after switching language', async () => {
+    setLanguage('en');
+    const { widgets } = fakeTurnstile();
+    render(<Harness siteKey="site" />);
+    await act(async () => {});
+    let pending!: Promise<string | undefined>;
+    act(() => { pending = hook.take(); });
+    // Attach handlers before the effect cleanup can settle the request.
+    const result = pending.then((token) => ({ token }), (error: unknown) => ({ error }));
+    await act(async () => setLanguage('ko'));
+    expect(hook.waiting).toBe(true);
+    act(() => widgets[1]!.callback?.('replacement-token'));
+    expect(await result).toEqual({ token: 'replacement-token' });
+  });
+
   it('is a no-op without a site key', async () => {
     render(<Harness siteKey={null} />);
     expect(screen.getByTestId('slot')).toBeEmptyDOMElement();

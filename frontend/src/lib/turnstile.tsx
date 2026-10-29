@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ApiError } from '../api';
 import { Text } from '../components/ui';
+import { t, useLanguage } from '../i18n';
 
 /** Cloudflare Turnstile(봇 확인). 서버가 사이트 키(`signup.turnstile_site_key`)를 줄 때만 켠다. */
 
@@ -75,6 +76,7 @@ function captchaError(message: string): ApiError {
 
 /** siteKey: `signup.turnstile_site_key`. action: 서버 라우트가 기대하는 값(login·register·password_reset). */
 export function useTurnstile(siteKey: string | null | undefined, action: string): Turnstile {
+  const language = useLanguage();
   // 콜백 ref: 위젯 자리가 사라졌다 다시 생기면(단계 전환 등) 새 자리에 다시 그린다.
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const widgetId = useRef<string | null>(null);
@@ -97,10 +99,14 @@ export function useTurnstile(siteKey: string | null | undefined, action: string)
     pending.forEach((resolve) => resolve(value));
   };
 
+  // Preserve the submitted form's wait while only the widget language changes.
+  useEffect(() => () => settle(null), [siteKey, action, container]);
+
   useEffect(() => {
     if (!siteKey || !container) return;
     let cancelled = false;
     fail(null);
+    setInteractive(false);
     loadTurnstile()
       .then((api) => {
         if (cancelled) return;
@@ -110,7 +116,7 @@ export function useTurnstile(siteKey: string | null | undefined, action: string)
             action,
             appearance: 'interaction-only',
             size: 'flexible',
-            language: 'ko',
+            language,
             callback: (t) => {
               token.current = t;
               fail(null);
@@ -139,9 +145,8 @@ export function useTurnstile(siteKey: string | null | undefined, action: string)
       if (widgetId.current) window.turnstile?.remove(widgetId.current);
       widgetId.current = null;
       token.current = null;
-      settle(null);
     };
-  }, [siteKey, action, container]);
+  }, [siteKey, action, container, language]);
 
   const take = useCallback(async (): Promise<string | undefined> => {
     if (!siteKey) return undefined;
@@ -176,14 +181,14 @@ export function useTurnstile(siteKey: string | null | undefined, action: string)
       <div ref={setContainer} />
       {error ? (
         <Text size="sm" tone="danger" role="alert">
-          {error}
+          {t(error)}
         </Text>
       ) : (
         waiting && (
           <Text size="sm" tone="muted" role="status">
-            {interactive
+            {t(interactive
               ? '보안 확인 상자를 눌러 주세요. 확인이 끝나면 자동으로 이어서 진행합니다.'
-              : '보안 확인 중입니다. 잠시만 기다려 주세요.'}
+              : '보안 확인 중입니다. 잠시만 기다려 주세요.')}
           </Text>
         )
       )}
