@@ -28,7 +28,7 @@ export function NewsFeed({ data }: { data: BoothState }) {
             </article>
           ))
         ) : (
-          <p className={styles.muted}>{t("아직 속보가 없습니다. 다음 사건을 기다려보세요.")}</p>
+          <p className={styles.muted}>{t("이번 가격 변동에 해당하는 속보가 없습니다.")}</p>
         )}
       </div>
     </section>

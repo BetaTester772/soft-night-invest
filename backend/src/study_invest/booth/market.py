@@ -26,8 +26,10 @@ from .news import market_headline
 from .views import latest_result, live_ranking
 
 CAPS = {1: 0.004, 2: 0.007, 3: 0.01}
-STOCK_MOVE_MULTIPLIER = 100
+STOCK_MOVE_MULTIPLIER = 50
 GHOSTS = {1: (2, 0.05, 0.08), 2: (4, 0.08, 0.15), 3: (6, 0.12, 0.25)}
+MOVE_SCALE = Fraction(1, 2)
+PRICE_FLOOR_RATIO = Fraction(3, 10)
 
 
 def publish_event(
@@ -153,6 +155,7 @@ def event_rates(
             "급등" if rate > 0 else "급락"
         )
     if headline:
+        rates = {c: float(Fraction(str(rate)) * MOVE_SCALE) for c, rate in rates.items()}
         publish_event(s, row, tick, now, kind=kind, headline=headline, sector=sector, rates=rates)
     has_alert = bool(headline)
     effects = {c: Fraction(str(rate)) for c, rate in rates.items()}
@@ -161,7 +164,9 @@ def event_rates(
         pending = list(data["pending"])
         event = pending.pop(0)
         data["pending"] = pending
-        queued_rates = event.get("rates", {})
+        queued_rates = {
+            c: float(Fraction(str(rate)) * MOVE_SCALE) for c, rate in event.get("rates", {}).items()
+        }
         publish_event(
             s,
             row,
@@ -177,7 +182,9 @@ def event_rates(
     row.private = data
     if row.number == 2:
         for code in SECTORS["feed"]["codes"]:
-            effects[code] = (1 + effects.get(code, Fraction(0))) * Fraction(10001, 10000) - 1
+            effects[code] = (1 + effects.get(code, Fraction(0))) * (
+                1 + Fraction(1, 10000) * MOVE_SCALE
+            ) - 1
     return effects, has_alert
 
 
@@ -216,12 +223,13 @@ def tick(s: Session, row: BoothRound, number: int) -> None:
         news=effects,
     )
     previous = row.prices
+    starts = initial_prices()
     # Amplify random moves before event effects, rounding, and the existing price bounds.
     row.prices = {
         code: next_stock_price(
             move.old_price,
             combined_rate(move.rate * STOCK_MOVE_MULTIPLIER, move.news_rate),
-            params.stock_min_price,
+            max(params.stock_min_price, ceil(starts[code] * PRICE_FLOOR_RATIO)),
         )
         for code, move in moves.items()
     }

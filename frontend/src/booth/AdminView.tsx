@@ -250,7 +250,7 @@ export function AdminView({ config }: { config: BoothConfig }) {
             </select>
           </label>
           <TextField
-            label={t("사건 변동률 (%)")}
+            label={t("사건 기준 변동률 (%, 실제 적용은 절반)")}
             type="number"
             min={-50}
             max={50}

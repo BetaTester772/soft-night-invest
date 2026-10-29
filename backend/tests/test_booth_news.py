@@ -1,4 +1,5 @@
 from datetime import timedelta
+from typing import Any
 
 import pytest
 from conftest import Clock
@@ -10,16 +11,28 @@ from study_invest.booth.models import BoothRound
 
 def test_automatic_market_news_is_varied_and_retry_safe(client: TestClient, clock: Clock) -> None:
     boot(client, clock)
+    factory = client.app.state.study_invest.session_factory  # type: ignore[attr-defined]
+    with factory() as session:
+        row = session.get(BoothRound, 1)
+        assert row is not None
+        row.private = dict(row.private, ghosts=[])
+        session.commit()
+    news: list[dict[str, Any]] = []
     for _ in range(24):
         clock.now += timedelta(seconds=30)
         client.post("/api/booth/admin/run", headers=ADMIN)
+        news.extend(
+            e for e in client.get("/api/booth/state").json()["events"] if e["kind"] == "market"
+        )
     events = client.get("/api/booth/state").json()["events"]
-    news = [e for e in events if e["kind"] == "market"]
     assert len(news) >= 2
     assert len({e["headline"] for e in news}) >= 2
     assert all(e["rates"] == {} and e["sector"] in ("feed", "build", "space") for e in news)
     client.post("/api/booth/admin/run", headers=ADMIN)
     assert client.get("/api/booth/state").json()["events"] == events
+    clock.now += timedelta(seconds=30)
+    assert client.post("/api/booth/admin/run", headers=ADMIN).status_code == 200
+    assert client.get("/api/booth/state").json()["events"] == []
 
 
 def test_news_tracks_actual_sector_direction_and_rotates_templates() -> None:

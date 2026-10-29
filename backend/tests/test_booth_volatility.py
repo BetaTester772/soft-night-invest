@@ -12,14 +12,14 @@ from study_invest.pricing import StockDraw
     ("round_id", "hour", "minute", "direction", "magnitude", "expected"),
     [
         # The opening model-fund purchase is 100,000 won, so flow scales the cap by 30/31.
-        (1, 17, 0, 0.0, 1.0, 34_680),
-        (1, 17, 0, 0.9, 1.0, 15_320),
-        (2, 18, 30, 0.0, 1.0, 41_940),
-        (2, 18, 30, 0.9, 1.0, 8_060),
-        (3, 19, 30, 0.0, 1.0, 49_190),
-        (3, 19, 30, 0.9, 1.0, 1_000),
-        (1, 17, 0, 0.0, 0.1, 25_100),
-        (1, 17, 0, 0.9, 0.1, 24_900),
+        (1, 17, 0, 0.0, 1.0, 29_840),
+        (1, 17, 0, 0.9, 1.0, 20_160),
+        (2, 18, 30, 0.0, 1.0, 33_470),
+        (2, 18, 30, 0.9, 1.0, 16_530),
+        (3, 19, 30, 0.0, 1.0, 37_100),
+        (3, 19, 30, 0.9, 1.0, 12_900),
+        (1, 17, 0, 0.0, 0.1, 25_050),
+        (1, 17, 0, 0.9, 0.1, 24_950),
     ],
 )
 def test_booth_scales_random_price_moves_before_rounding_and_price_floor(
@@ -48,7 +48,7 @@ def test_booth_scales_random_price_moves_before_rounding_and_price_floor(
     assert stock["change_rate"] == (expected - 25_000) / 25_000
 
 
-def test_booth_scales_only_random_moves_before_applying_incident_rates(
+def test_booth_halves_random_moves_and_incident_rates_before_combining(
     client: TestClient, clock: Clock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(
@@ -72,5 +72,5 @@ def test_booth_scales_only_random_moves_before_applying_incident_rates(
     assert client.post("/api/booth/admin/run", headers=ADMIN).status_code == 200
     state = client.get("/api/booth/state").json()
     stock = next(i for i in state["instruments"] if i["code"] == "PANG")
-    assert stock["price"] == 41_610
-    assert state["events"][0]["rates"] == {"PANG": 0.2, "FOSS": 0.2}
+    assert stock["price"] == 32_820
+    assert state["events"][0]["rates"] == {"PANG": 0.1, "FOSS": 0.1}
