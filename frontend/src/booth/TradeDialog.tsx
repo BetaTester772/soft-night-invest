@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button, Modal, TextField } from "../components/ui";
 import { boothApi } from "./api";
 import { boothTokenStore } from "../api/storage";
+import { formatNumber } from "../lib/format";
 import { parseUnits, units, won } from "./format";
 import type { BoothState, OrderBody, TradeTarget } from "./types";
 import styles from "./Booth.module.css";
@@ -40,6 +41,10 @@ export function TradeDialog({
   }, []);
   const stock = data.instruments.find((i) => i.code === target.code);
   const fund = data.funds.find((f) => f.code === target.code);
+  const maxBuyQuantity =
+    stock && stock.price > 0
+      ? Math.min(1_000_000_000, Math.floor((data.me?.cash ?? 0) / stock.price))
+      : 0;
   const held =
     target.kind === "stock"
       ? (data.me?.holdings.find((h) => h.code === target.code)?.quantity ?? 0)
@@ -164,6 +169,13 @@ export function TradeDialog({
         </p>
         <TextField
           label={label}
+          hint={
+            target.kind === "stock" && side === "buy"
+              ? t("최대 구매 가능 수량: {quantity}주 (현재가 기준)", {
+                  quantity: formatNumber(maxBuyQuantity),
+                })
+              : undefined
+          }
           inputMode={
             target.kind === "fund" && side === "sell" ? "decimal" : "numeric"
           }

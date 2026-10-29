@@ -1,8 +1,11 @@
 from datetime import time
 
+import pytest
 from conftest import Clock
 from fastapi.testclient import TestClient
 from test_booth_api import ADMIN, DAY, boot, buy_payload, join
+
+from study_invest.pricing import StockDraw
 
 
 def run(client: TestClient, clock: Clock, minute: int, second: int = 0) -> None:
@@ -70,7 +73,12 @@ def test_order_rejects_stale_prices_even_if_scheduler_is_stopped(
 def test_sector_incident_changes_only_target_sector(
     client: TestClient,
     clock: Clock,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(
+        "study_invest.booth.market.draw_stock_randoms",
+        lambda codes, rng: {code: StockDraw(0.0, 0.0) for code in codes},
+    )
     boot(client, clock)
     response = client.post(
         "/api/booth/admin/incident",
@@ -90,9 +98,9 @@ def test_sector_incident_changes_only_target_sector(
     assert event["headline"] == "판게아 대륙 분리"
     assert set(event["rates"]) == {"PANG", "FOSS"}
     prices = {i["code"]: i["price"] for i in state["instruments"]}
-    assert prices["PANG"] >= 29_800
-    assert prices["FOSS"] >= 17_800
-    assert prices["FEED"] < 10_100
+    assert prices["PANG"] == 30_000
+    assert prices["FOSS"] == 18_000
+    assert prices["FEED"] == 10_000
 
 
 def test_final_results_freeze_and_disqualification_creates_revision(
@@ -145,8 +153,12 @@ def test_meteor_is_published_once_after_resume(client: TestClient, clock: Clock)
 
 
 def test_stock_change_is_relative_to_previous_published_tick(
-    client: TestClient, clock: Clock
+    client: TestClient, clock: Clock, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setattr(
+        "study_invest.booth.market.draw_stock_randoms",
+        lambda codes, rng: {code: StockDraw(0.0, 0.5) for code in codes},
+    )
     boot(client, clock)
     initial = client.get("/api/booth/state").json()
     first = next(i for i in initial["instruments"] if i["code"] == "PANG")

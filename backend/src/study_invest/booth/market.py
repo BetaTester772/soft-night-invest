@@ -16,7 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..params import EventParams
-from ..pricing import draw_stock_randoms, settle_stocks
+from ..pricing import combined_rate, draw_stock_randoms, next_stock_price, settle_stocks
 from ..services.common import DomainError, audit, batch_lock
 from . import funds
 from .accounts import ensure_rounds, lock_round
@@ -26,6 +26,7 @@ from .news import market_headline
 from .views import latest_result, live_ranking
 
 CAPS = {1: 0.004, 2: 0.007, 3: 0.01}
+STOCK_MOVE_MULTIPLIER = 100
 GHOSTS = {1: (2, 0.05, 0.08), 2: (4, 0.08, 0.15), 3: (6, 0.12, 0.25)}
 
 
@@ -215,7 +216,15 @@ def tick(s: Session, row: BoothRound, number: int) -> None:
         news=effects,
     )
     previous = row.prices
-    row.prices = {code: move.new_price for code, move in moves.items()}
+    # Amplify random moves before event effects, rounding, and the existing price bounds.
+    row.prices = {
+        code: next_stock_price(
+            move.old_price,
+            combined_rate(move.rate * STOCK_MOVE_MULTIPLIER, move.news_rate),
+            params.stock_min_price,
+        )
+        for code, move in moves.items()
+    }
     if elapsed % 120 == 0 and now < row.closes_at and not has_alert:
         sector, headline = market_headline(previous, row.prices, elapsed // 120)
         publish_event(s, row, number, now, kind="market", headline=headline, sector=sector)
