@@ -13,6 +13,8 @@ export function t(message: string, values: Record<string, string | number> = {})
   let translated = language === 'en' && Object.hasOwn(english, message) ? english[message] ?? message : message;
   if (language === 'en' && translated === message) {
     translated = message
+      .replace(/^보안 확인 중 오류가 났습니다\(([^)]+)\)\. 페이지를 새로고침한 뒤 다시 시도해 주세요\.$/, (_, code: string) =>
+        t('보안 확인 중 오류가 났습니다({code}). 페이지를 새로고침한 뒤 다시 시도해 주세요.', { code }))
       .replace(/^시세 계산이 (\d+)초 이상 지연되었습니다\.$/, 'Price updates have been delayed for more than $1 seconds.')
       .replace(/^공룡 귀신 출몰! (.+) 섹터 (급등|급락)$/, (_, sector: string, move: string) =>
         `Dinosaur ghost sighting! ${english[sector] ?? sector} stocks ${move === '급등' ? 'surge' : 'plunge'}.`)
