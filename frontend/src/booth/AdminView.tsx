@@ -53,7 +53,12 @@ export function AdminView({ config }: { config: BoothConfig }) {
       if (name === "grant") {
         const signature = JSON.stringify(body);
         if (grantRequest.current?.signature !== signature) {
-          grantRequest.current = { signature, id: crypto.randomUUID() };
+          const id =
+            crypto.randomUUID?.() ??
+            Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
+              byte.toString(16).padStart(2, "0"),
+            ).join("");
+          grantRequest.current = { signature, id };
         }
         payload = { ...(body as object), request_id: grantRequest.current.id };
       }

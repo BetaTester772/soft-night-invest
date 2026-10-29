@@ -119,3 +119,24 @@ it("renders the added administrator controls in English", async () => {
   expect(screen.getByRole("button", { name: "Grant funds" })).toBeInTheDocument();
   expect(screen.getByLabelText("Grant amount (KRW)")).toBeInTheDocument();
 });
+
+it("generates a stable grant ID without randomUUID when retrying", async () => {
+  const getRandomValues = vi.fn((bytes: Uint8Array) => bytes.fill(17));
+  vi.stubGlobal("crypto", { getRandomValues });
+  const { fetch, user } = setup("open", true);
+  await screen.findByRole("option", { name: "김공룡" });
+  await user.selectOptions(screen.getByLabelText("참가자"), "1");
+  await user.type(screen.getByLabelText("운영 사유"), "현장 지원금");
+  const button = screen.getByRole("button", { name: "지원금 지급" });
+  await user.click(button);
+  await screen.findByText(/서버에 연결하지 못했습니다/);
+  await user.click(button);
+  await screen.findByText("지원금을 지급했습니다.");
+  const calls = fetch.mock.calls.filter(([url]) => String(url).endsWith("/grant"));
+  expect(calls).toHaveLength(2);
+  const first = JSON.parse((calls[0]![1] as RequestInit).body as string);
+  const retry = JSON.parse((calls[1]![1] as RequestInit).body as string);
+  expect(first.request_id).toBe("11".repeat(16));
+  expect(retry.request_id).toBe(first.request_id);
+  expect(getRandomValues).toHaveBeenCalledTimes(1);
+});
