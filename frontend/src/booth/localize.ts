@@ -22,7 +22,7 @@ export function localizeBoothState(data: BoothState): BoothState {
     })),
     events: data.events.map((e) => ({
       ...e,
-      headline: ['ghost', 'meteor', 'cancelled'].includes(e.kind) ? t(e.headline) : e.headline,
+      headline: ['ghost', 'meteor', 'cancelled', 'market'].includes(e.kind) ? t(e.headline) : e.headline,
     })),
     me: data.me ? {
       ...data.me,

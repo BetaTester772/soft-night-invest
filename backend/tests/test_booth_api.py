@@ -24,7 +24,7 @@ def join(client: TestClient, nickname: str = "김공룡") -> dict[str, str]:
     return {"Authorization": "Bearer " + response.json()["token"]}
 
 
-def boot(client: TestClient, clock: Clock, hour: int = 16, minute: int = 0) -> None:
+def boot(client: TestClient, clock: Clock, hour: int = 17, minute: int = 0) -> None:
     clock.set(DAY, time(hour, minute))
     response = client.post("/api/booth/admin/run", headers=ADMIN)
     assert response.status_code == 200, response.text
@@ -43,7 +43,7 @@ def buy_payload(request_id: str = "test-order-001", **changes: object) -> dict[s
 
 
 def test_public_state_and_registered_participation(client: TestClient, clock: Clock) -> None:
-    clock.set(DAY, time(15, 59))
+    clock.set(DAY, time(16, 59))
     response = client.get("/api/booth/state")
     assert response.status_code == 200, response.text
     data = response.json()
@@ -97,10 +97,10 @@ def test_order_limits_closing_and_wrong_session(client: TestClient, clock: Clock
     assert response.status_code == 409
     response = client.post("/api/booth/orders", json=buy_payload(quantity=True), headers=headers)
     assert response.status_code == 422
-    clock.set(DAY, time(16, 50))
+    clock.set(DAY, time(17, 50))
     response = client.post("/api/booth/orders", json=buy_payload(), headers=headers)
     assert response.status_code == 409
-    boot(client, clock, 17)
+    boot(client, clock, 18, 30)
     response = client.post("/api/booth/orders", json=buy_payload(), headers=headers)
     assert response.status_code == 409
     enroll(client, headers, 2)
@@ -156,7 +156,7 @@ def test_existing_login_reopens_same_booth_account(client: TestClient, clock: Cl
     from conftest import register
 
     study_headers = register(client)
-    clock.set(DAY, time(15, 59))
+    clock.set(DAY, time(16, 59))
     assert client.post("/api/booth/session").status_code == 401
     first = client.post("/api/booth/session", headers=study_headers)
     assert first.status_code == 200, first.text
@@ -191,7 +191,7 @@ def test_qa_cash_requires_admin_and_qa_and_excludes_ranking(
     assert state["me"]["cash"] == 2_000_000
     assert state["ranking"] == []
     assert client.post(url, json=dict(body, amount=100_000_000), headers=ADMIN).status_code == 409
-    clock.set(DAY, time(16, 50))
+    clock.set(DAY, time(17, 50))
     assert client.post(url, json=body, headers=ADMIN).status_code == 409
 
 
@@ -202,7 +202,7 @@ def test_linked_login_skips_all_occupied_fallback_nicknames(
 
     study_headers = register(client)
     person_id = client.get("/api/me", headers=study_headers).json()["id"]
-    clock.set(DAY, time(15, 59))
+    clock.set(DAY, time(16, 59))
     occupied = ["alice", f"alice·계정{person_id}", f"alice·계정{person_id}-1"]
     old_ids = []
     from study_invest.booth import accounts
@@ -230,7 +230,7 @@ def test_password_reset_revokes_all_linked_booth_tokens(
     from conftest import register
 
     study_headers = register(client)
-    clock.set(DAY, time(16, 0))
+    clock.set(DAY, time(17, 0))
     other_headers = join(client, "unrelated")
     old_headers = []
     for _ in range(2):
@@ -275,7 +275,7 @@ def test_booth_signup_uses_booth_date_and_requires_registration(
 
     state = client.app.state.study_invest  # type: ignore[attr-defined]
     state.settings = replace(state.settings, event_mode="booth")
-    clock.set(DAY, time(15, 59))
+    clock.set(DAY, time(16, 59))
     assert client.post("/api/booth/join", json={"nickname": "우회"}).status_code == 404
     assert client.post("/api/booth/session").status_code == 401
     with state.session_factory() as session:

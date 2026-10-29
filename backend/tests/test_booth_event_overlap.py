@@ -34,5 +34,5 @@ def test_queued_publication_preserves_scheduled_ghost(
     events = client.get("/api/booth/state").json()["events"]
     assert len([e for e in events if e["kind"] == "ghost"]) == 2
     assert len([e for e in events if e["headline"] == "운영 공지"]) == 1
-    overlap = [e for e in events if e["created_at"].endswith("16:01:00+09:00")]
+    overlap = [e for e in events if e["created_at"].endswith("17:01:00+09:00")]
     assert len(overlap) == 2

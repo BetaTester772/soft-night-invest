@@ -6,7 +6,7 @@ from test_booth_api import ADMIN, DAY, boot, buy_payload, join
 
 
 def run(client: TestClient, clock: Clock, minute: int, second: int = 0) -> None:
-    clock.set(DAY, time(16, minute, second))
+    clock.set(DAY, time(17, minute, second))
     response = client.post("/api/booth/admin/run", headers=ADMIN)
     assert response.status_code == 200, response.text
 
@@ -61,7 +61,7 @@ def test_order_rejects_stale_prices_even_if_scheduler_is_stopped(
 ) -> None:
     boot(client, clock)
     headers = join(client)
-    clock.set(DAY, time(16, 1, 30))
+    clock.set(DAY, time(17, 1, 30))
     response = client.post("/api/booth/orders", json=buy_payload(), headers=headers)
     assert response.status_code == 409
     assert response.json()["detail"]["code"] == "STALE_PRICE"
@@ -104,7 +104,7 @@ def test_final_results_freeze_and_disqualification_creates_revision(
     response = client.post("/api/booth/orders", json=buy_payload(), headers=headers)
     assert response.status_code == 201
     pid = response.json()["me"]["participant_id"]
-    clock.set(DAY, time(16, 50))
+    clock.set(DAY, time(17, 50))
     assert client.post("/api/booth/admin/run", headers=ADMIN).status_code == 200
     state = client.get("/api/booth/state?round_id=1", headers=headers).json()
     assert state["round"]["state"] == "closed"

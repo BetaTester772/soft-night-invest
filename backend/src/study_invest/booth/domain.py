@@ -74,8 +74,8 @@ def sessions(day: date) -> tuple[SessionSpec, ...]:
     return tuple(
         SessionSpec(n, era, datetime.combine(day, start, KST), datetime.combine(day, end, KST))
         for n, era, start, end in (
-            (1, "트라이아스기", time(16), time(16, 50)),
-            (2, "쥐라기", time(17), time(17, 50)),
+            (1, "트라이아스기", time(17), time(17, 50)),
+            (2, "쥐라기", time(18, 30), time(19, 20)),
             (3, "백악기", time(19, 30), time(20, 20)),
         )
     )

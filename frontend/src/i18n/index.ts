@@ -20,6 +20,8 @@ export function t(message: string, values: Record<string, string | number> = {})
         `Dinosaur ghost sighting! ${english[sector] ?? sector} stocks ${move === '급등' ? 'surge' : 'plunge'}.`)
       .replace(/^거래 정지 중 예정된 공룡 귀신 사건 (\d+)건을 취소했습니다\.$/, 'Cancelled $1 dinosaur ghost events scheduled during the trading pause.');
     translated = translated
+      .replace(/^인증 코드가 맞지 않습니다\. (\d+)번 더 시도할 수 있습니다\.$/, 'The verification code is incorrect. You have $1 attempts left.')
+      .replace(/^(\d+)초 뒤에 다시 요청할 수 있습니다\.$/, 'You can request another code in $1 seconds.')
       .replace(/^요청을 처리하지 못했습니다\. \(HTTP (\d+)\)$/, 'Unable to process the request. (HTTP $1)')
       .replace(/^입력한 값을 다시 확인해 주세요\. \((.*)\)$/, 'Please check your input. ($1)');
   }

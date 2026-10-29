@@ -17,7 +17,7 @@ def test_environment_defaults_to_booth_and_booth_clock_starts_before_open(
     assert settings.event_mode == "booth"
     clock = settings.make_clock()
     assert isinstance(clock, ScaledClock)
-    assert clock.virtual_origin == datetime(2026, 10, 30, 15, 59, 50, tzinfo=KST)
+    assert clock.virtual_origin == datetime(2026, 10, 30, 16, 59, 50, tzinfo=KST)
 
 
 @pytest.mark.parametrize(

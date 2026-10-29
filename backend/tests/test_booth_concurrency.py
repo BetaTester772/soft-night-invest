@@ -112,7 +112,7 @@ def test_market_changes_wait_for_in_flight_orders(client: TestClient, clock: Clo
                 accounts.lock_round(market_session, 1)
         assert row.version == 0
     # Once orders finish, the scheduler can publish the next version normally.
-    clock.set(DAY, time(16, 0, 30))
+    clock.set(DAY, time(17, 0, 30))
     assert client.post("/api/booth/admin/run", headers=ADMIN).status_code == 200
     response = client.post("/api/booth/orders", json=buy_payload(), headers=headers)
     assert response.status_code == 201, response.text

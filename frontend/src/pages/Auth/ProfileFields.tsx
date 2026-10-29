@@ -1,3 +1,4 @@
+import { t, useLanguage } from '../../i18n';
 import type { ProfileFields as Profile } from '../../api';
 import { TextField } from '../../components/ui';
 import { digitsOnly } from './SchoolEmailFields';
@@ -33,35 +34,36 @@ export function ProfileFields({
   onChange: (value: Profile) => void;
   errors: ProfileErrors;
 }) {
+  useLanguage();
   const set = (key: keyof Profile, v: string) => onChange({ ...value, [key]: v });
   return (
     <>
       <TextField
-        label="이름"
-        hint="운영진에게만 표시됩니다."
+        label={t("이름")}
+        hint={t("운영진에게만 표시됩니다.")}
         autoComplete="name"
         value={value.name}
         onChange={(e) => set('name', e.target.value)}
-        error={errors.name}
+        error={errors.name ? t(errors.name) : undefined}
         maxLength={30}
         required
       />
       <TextField
-        label="학번"
-        hint="숫자 10자리. 한 학번에 한 계정만 만들 수 있습니다."
+        label={t("학번")}
+        hint={t("숫자 10자리. 한 학번에 한 계정만 만들 수 있습니다.")}
         inputMode="numeric"
         placeholder="2026310000"
         value={value.student_id}
         onChange={(e) => set('student_id', digitsOnly(e.target.value, 10))}
-        error={errors.student_id}
+        error={errors.student_id ? t(errors.student_id) : undefined}
         required
       />
       <TextField
-        label="학과"
-        hint="예: 지능형소프트웨어학과"
+        label={t("학과")}
+        hint={t("예: 지능형소프트웨어학과")}
         value={value.department}
         onChange={(e) => set('department', e.target.value)}
-        error={errors.department}
+        error={errors.department ? t(errors.department) : undefined}
         maxLength={50}
         required
       />

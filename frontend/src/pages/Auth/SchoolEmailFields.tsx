@@ -1,3 +1,4 @@
+import { t, useLanguage } from '../../i18n';
 import { useEffect, useState } from 'react';
 import { ApiError, authApi, type EmailCodeResponse } from '../../api';
 import { Alert, Button, Checkbox, Stack, Text, TextField } from '../../components/ui';
@@ -98,6 +99,7 @@ function CodeSteps({
   codeError?: string;
   captchaWaiting?: boolean;
 }) {
+  useLanguage();
   const { sending, sentTo, notice, resendLeft } = state;
   return (
     <>
@@ -109,28 +111,28 @@ function CodeSteps({
         disabled={disabled || resendLeft > 0 || captchaWaiting}
       >
         {captchaWaiting
-          ? '보안 확인을 기다리는 중'
+          ? t('보안 확인을 기다리는 중')
           : resendLeft > 0
-            ? `${resendLeft}초 뒤에 다시 받을 수 있습니다`
+            ? t('{seconds}초 뒤에 다시 받을 수 있습니다', { seconds: resendLeft })
             : sentTo
-              ? '코드 다시 받기'
-              : label}
+              ? t('코드 다시 받기')
+              : t(label)}
       </Button>
-      {notice && <Alert tone="danger">{notice}</Alert>}
+      {notice && <Alert tone="danger">{t(notice)}</Alert>}
       {sentTo && (
         <Alert tone="info">
-          {sentTo}(으)로 인증 코드를 보냈습니다. 10분 안에 입력해 주세요. 메일이 안 보이면 스팸함도 확인해 주세요.
+          {t('{email}(으)로 인증 코드를 보냈습니다. 10분 안에 입력해 주세요. 메일이 안 보이면 스팸함도 확인해 주세요.', { email: sentTo })}
         </Alert>
       )}
       <TextField
-        label="인증 코드"
-        hint="메일로 받은 6자리 숫자"
+        label={t("인증 코드")}
+        hint={t("메일로 받은 6자리 숫자")}
         inputMode="numeric"
         autoComplete="one-time-code"
         maxLength={6}
         value={code}
         onChange={(e) => onCodeChange(digitsOnly(e.target.value, 6))}
-        error={codeError}
+        error={codeError ? t(codeError) : undefined}
         required
       />
     </>
@@ -163,6 +165,7 @@ export function CodeSender({
   codeError: codeErr,
   captchaWaiting,
 }: CodeSenderProps) {
+  useLanguage();
   const state = useCodeRequest();
   const onClick = async () => {
     if (validate?.()) return;
@@ -214,6 +217,7 @@ export function SchoolEmailFields({
   hint = '@skku.edu 또는 @g.skku.edu. 같은 ID의 두 주소는 한 사람으로 봅니다.',
   captchaWaiting,
 }: SchoolEmailFieldsProps) {
+  useLanguage();
   const state = useCodeRequest();
 
   const requestCode = async () => {
@@ -236,8 +240,8 @@ export function SchoolEmailFields({
   return (
     <Stack gap={3}>
       <TextField
-        label="학교 메일"
-        hint={hint}
+        label={t("학교 메일")}
+        hint={hint ? t(hint) : undefined}
         type="email"
         autoComplete="email"
         inputMode="email"
@@ -247,13 +251,13 @@ export function SchoolEmailFields({
           onEmailChange(e.target.value);
           state.reset();
         }}
-        error={emailError}
+        error={emailError ? t(emailError) : undefined}
         required
       />
       {withCode && (
         <CodeSteps
           state={state}
-          label="인증 코드 받기"
+          label={t("인증 코드 받기")}
           onClick={() => void requestCode()}
           code={code}
           onCodeChange={onCodeChange}
@@ -275,29 +279,30 @@ export function PrivacyConsent({
   onChange: (checked: boolean) => void;
   error?: string;
 }) {
+  useLanguage();
   return (
     <Stack gap={2}>
       <Text size="sm" weight="semibold">
-        개인정보 수집·이용 안내
+        {t('개인정보 수집·이용 안내')}
       </Text>
       <Text as="div" size="sm" tone="muted">
         <ul className={styles.consent}>
-          <li>수집 항목: 학교 메일 주소, 이름, 학번, 학과</li>
-          <li>이용 목적: 본인 확인, 1인 1계정(중복 가입 방지), 비밀번호 재설정</li>
-          <li>보유 기간: 이벤트가 끝나면 지체 없이 파기해요</li>
-          <li>랭킹에는 닉네임만 보이고, 메일·이름·학번·학과는 운영진만 봅니다.</li>
-          <li>동의하지 않을 수 있습니다. 다만 동의하지 않으면 이벤트에 참가할 수 없습니다.</li>
+          <li>{t("수집 항목: 학교 메일 주소, 이름, 학번, 학과")}</li>
+          <li>{t("이용 목적: 본인 확인, 1인 1계정(중복 가입 방지), 비밀번호 재설정")}</li>
+          <li>{t("보유 기간: 이벤트가 끝나면 지체 없이 파기해요")}</li>
+          <li>{t("랭킹에는 닉네임만 보이고, 메일·이름·학번·학과는 운영진만 봅니다.")}</li>
+          <li>{t("동의하지 않을 수 있습니다. 다만 동의하지 않으면 이벤트에 참가할 수 없습니다.")}</li>
         </ul>
       </Text>
       <Checkbox
-        label="개인정보(학교 메일·이름·학번·학과) 수집·이용에 동의합니다 (필수)"
+        label={t("개인정보(학교 메일·이름·학번·학과) 수집·이용에 동의합니다 (필수)")}
         checked={checked}
         onChange={onChange}
         aria-invalid={error ? true : undefined}
       />
       {error && (
         <Text size="sm" tone="danger" role="alert">
-          {error}
+          {t(error)}
         </Text>
       )}
     </Stack>

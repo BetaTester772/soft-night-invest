@@ -225,7 +225,7 @@ function BoothShell({ config }: { config: BoothConfig }) {
     }
   }
   const lastEvent = data?.events.find(
-    (e) => e.kind === "ghost" || e.kind === "meteor" || e.kind === "manual",
+    (e) => e.kind === "ghost" || e.kind === "meteor" || e.kind === "manual" || e.kind === "market",
   );
   return (
     <div className={styles.app + (broadcast ? " " + styles.broadcast : "")}>
@@ -359,6 +359,11 @@ function BoothShell({ config }: { config: BoothConfig }) {
                 </button>
               ))}
             </div>
+            {data.rounds[0] && data.rounds[1] && (
+              <p className={styles.scheduleBreak}>
+                {t("저녁 휴장")} · {time(data.rounds[0].closes_at)}–{time(data.rounds[1].opens_at)} (KST)
+              </p>
+            )}
             <div className={styles.sessionBar}>
               <span className={styles.pill}>
                 <i />
@@ -434,7 +439,7 @@ function BoothShell({ config }: { config: BoothConfig }) {
                     </div>
                     {lastEvent && (
                       <div className={styles.eventBanner}>
-                        <strong>{t("공룡 귀신 속보")}</strong>
+                        <strong>{t(lastEvent.kind === "market" ? "시장 소식" : "공룡 귀신 속보")}</strong>
                         <span>{lastEvent.headline}</span>
                         <small>{time(lastEvent.created_at)}</small>
                       </div>

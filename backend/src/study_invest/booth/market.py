@@ -22,6 +22,7 @@ from . import funds
 from .accounts import ensure_rounds, lock_round
 from .domain import FUND_INTERVAL_SECONDS, SECTORS, TICK_SECONDS, initial_prices, tick_seconds
 from .models import BoothEvent, BoothOrder, BoothResult, BoothRound, BoothTick
+from .news import market_headline
 from .views import latest_result, live_ranking
 
 CAPS = {1: 0.004, 2: 0.007, 3: 0.01}
@@ -119,7 +120,8 @@ def event_rates(
     tick: int,
     now: datetime,
     rng: random.Random,
-) -> dict[str, Fraction]:
+) -> tuple[dict[str, Fraction], bool]:
+    """Return price effects and whether a priority headline was published."""
     data = dict(row.private)
     sector: str | None = None
     rates: dict[str, float] = {}
@@ -151,8 +153,10 @@ def event_rates(
         )
     if headline:
         publish_event(s, row, tick, now, kind=kind, headline=headline, sector=sector, rates=rates)
+    has_alert = bool(headline)
     effects = {c: Fraction(str(rate)) for c, rate in rates.items()}
     if data.get("pending"):
+        has_alert = True
         pending = list(data["pending"])
         event = pending.pop(0)
         data["pending"] = pending
@@ -173,7 +177,7 @@ def event_rates(
     if row.number == 2:
         for code in SECTORS["feed"]["codes"]:
             effects[code] = (1 + effects.get(code, Fraction(0))) * Fraction(10001, 10000) - 1
-    return effects
+    return effects, has_alert
 
 
 def tick(s: Session, row: BoothRound, number: int) -> None:
@@ -199,15 +203,22 @@ def tick(s: Session, row: BoothRound, number: int) -> None:
         news_good_per_day=0,
         news_bad_per_day=0,
     )
+    # Preserve the established RNG order: stock draws precede event draws.
+    draws = draw_stock_randoms(row.prices, rng)
+    effects, has_alert = event_rates(s, row, number, now, rng)
     moves = settle_stocks(
         row.prices,
         buys,
         sells,
         params,
-        draw_stock_randoms(row.prices, rng),
-        news=event_rates(s, row, number, now, rng),
+        draws,
+        news=effects,
     )
+    previous = row.prices
     row.prices = {code: move.new_price for code, move in moves.items()}
+    if elapsed % 120 == 0 and now < row.closes_at and not has_alert:
+        sector, headline = market_headline(previous, row.prices, elapsed // 120)
+        publish_event(s, row, number, now, kind="market", headline=headline, sector=sector)
     row.version, row.published_at = number, now
     record = BoothTick(
         round_id=row.number, number=number, prices=dict(row.prices), created_at=now, detail={}
