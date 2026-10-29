@@ -81,7 +81,8 @@ export function MarketView({
                   </td>
                   <td>{won(i.price)}</td>
                   <td className={styles[tone(i.change_rate)]}>
-                    {pct(i.change_rate)}
+                    {pct(i.change_rate)} ({i.price - i.previous_price > 0 ? "+" : ""}
+                    {won(i.price - i.previous_price)})
                   </td>
                   <td className={styles.sparkColumn}>
                     <div className={styles.spark}>
@@ -106,7 +107,8 @@ export function MarketView({
                 <h3>
                   {won(instrument.price)}{" "}
                   <span className={styles[tone(instrument.change_rate)]}>
-                    {pct(instrument.change_rate)}
+                    {pct(instrument.change_rate)} ({instrument.price - instrument.previous_price > 0 ? "+" : ""}
+                    {won(instrument.price - instrument.previous_price)})
                   </span>
                 </h3>
               </div>
