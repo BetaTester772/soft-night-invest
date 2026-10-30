@@ -700,6 +700,69 @@
   font-size: 12px;
   margin-top: 15px;
 }
+.holdings {
+  display: grid;
+  gap: 12px;
+}
+.holdingCard {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(0, 3fr);
+  align-items: center;
+  gap: 24px;
+  padding: 16px;
+  border: 1px solid #344037;
+  border-radius: 8px;
+  background: #151f18;
+}
+.holdingHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+.holdingHeader h4 {
+  margin: 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.holdingHeader button {
+  flex-shrink: 0;
+  min-height: 44px;
+  min-width: 52px;
+}
+.holdingMetrics,
+.priceSummary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.holdingMetrics dt,
+.priceSummary dt {
+  color: #a0b0a2;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+.holdingMetrics dd,
+.priceSummary dd {
+  margin: 0;
+  color: #f2f0e6;
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.averagePrice dd {
+  color: #c8e59c;
+}
+.priceSummary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 14px;
+  background: #151f18;
+  border: 1px solid #344037;
+  border-radius: 8px;
+}
 .totals {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1237,6 +1300,17 @@
   }
   .portfolio {
     padding: 20px 15px;
+  }
+  .holdingCard {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    padding: 14px;
+  }
+  .holdingMetrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 12px;
+    padding-top: 14px;
+    border-top: 1px solid #344037;
   }
   .tvHeading h1 {
     font-size: 25px;

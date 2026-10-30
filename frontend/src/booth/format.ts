@@ -4,6 +4,13 @@ import { getLanguage, getLocale } from '../i18n/locale';
 export const won = (n: number) => getLanguage() === 'ko'
   ? formatNumber(Math.floor(n)) + '원'
   : 'KRW ' + new Intl.NumberFormat(getLocale(), { maximumFractionDigits: 0 }).format(Math.floor(n));
+/** Remaining cost per share/unit; fund quantities are stored in millionths. */
+export function averagePrice(cost: number, quantity: number, unitScale = 1): string {
+  if (quantity <= 0) return '—';
+  const amount = new Intl.NumberFormat(getLocale(), { maximumFractionDigits: 2 })
+    .format(cost / (quantity / unitScale));
+  return getLanguage() === 'ko' ? amount + '원' : 'KRW ' + amount;
+}
 export const pct = (n: number) =>
   (n > 0 ? "+" : "") + (n * 100).toFixed(2) + "%";
 export const tone = (n: number) => (n > 0 ? "up" : n < 0 ? "down" : "flat");

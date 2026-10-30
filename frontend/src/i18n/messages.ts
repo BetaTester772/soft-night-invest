@@ -190,6 +190,7 @@ export const english: Record<string, string> = {
   "직전 대비 등락률": "Change from previous price",
   "종목 / 섹터": "Stock / sector",
   "현재가": "Current price",
+  "평단가": "Average cost",
   "장 수익률": "Round return",
   "가격 흐름": "Price trend",
   " 가격 흐름": " price trend",
