@@ -34,9 +34,7 @@ def test_automatic_market_news_is_varied_and_retry_safe(client: TestClient, cloc
     assert client.post("/api/booth/admin/run", headers=ADMIN).status_code == 200
     assert client.get("/api/booth/state").json()["events"] == []
     history = client.get("/api/booth/state").json()["event_history"]
-    assert [e["id"] for e in history if e["kind"] == "market"] == [
-        e["id"] for e in reversed(news)
-    ]
+    assert [e["id"] for e in history if e["kind"] == "market"] == [e["id"] for e in reversed(news)]
     assert client.get("/api/booth/state").json()["event_history"] == history
     assert client.get("/api/booth/state?round_id=2").json()["event_history"] == []
 
@@ -50,11 +48,17 @@ def test_history_keeps_older_events_but_never_unpublished_events(
         row = session.get(BoothRound, 1)
         assert row is not None
         for number in range(36):
-            session.add(BoothEvent(
-                round_id=1, tick=row.version if number < 35 else row.version + 1,
-                kind="news", headline=f"공지 {number}", sector=None, rates={},
-                created_at=clock.now,
-            ))
+            session.add(
+                BoothEvent(
+                    round_id=1,
+                    tick=row.version if number < 35 else row.version + 1,
+                    kind="news",
+                    headline=f"공지 {number}",
+                    sector=None,
+                    rates={},
+                    created_at=clock.now,
+                )
+            )
         session.commit()
     data = client.get("/api/booth/state").json()
     assert [e["headline"] for e in data["event_history"]] == [
