@@ -67,12 +67,13 @@ export function MarketView({
               {data.instruments.map((i) => (
                 <tr
                   key={i.code}
-                  className={instrument?.code === i.code ? styles.selected : ""}
+                  className={`${styles.stockRow} ${instrument?.code === i.code ? styles.selected : ""}`}
+                  onClick={() => setSelected(i.code)}
                 >
                   <td>
                     <button
                       className={styles.stockSelect}
-                      onClick={() => setSelected(i.code)}
+                      type="button"
                       aria-pressed={instrument?.code === i.code}
                     >
                       <strong>{i.name}</strong>
