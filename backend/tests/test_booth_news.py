@@ -6,7 +6,7 @@ from conftest import Clock
 from fastapi.testclient import TestClient
 from test_booth_api import ADMIN, boot
 
-from study_invest.booth.models import BoothRound
+from study_invest.booth.models import BoothEvent, BoothRound
 
 
 def test_automatic_market_news_is_varied_and_retry_safe(client: TestClient, clock: Clock) -> None:
@@ -33,6 +33,38 @@ def test_automatic_market_news_is_varied_and_retry_safe(client: TestClient, cloc
     clock.now += timedelta(seconds=30)
     assert client.post("/api/booth/admin/run", headers=ADMIN).status_code == 200
     assert client.get("/api/booth/state").json()["events"] == []
+    history = client.get("/api/booth/state").json()["event_history"]
+    assert [e["id"] for e in history if e["kind"] == "market"] == [e["id"] for e in reversed(news)]
+    assert client.get("/api/booth/state").json()["event_history"] == history
+    assert client.get("/api/booth/state?round_id=2").json()["event_history"] == []
+
+
+def test_history_keeps_older_events_but_never_unpublished_events(
+    client: TestClient, clock: Clock
+) -> None:
+    boot(client, clock)
+    factory = client.app.state.study_invest.session_factory  # type: ignore[attr-defined]
+    with factory() as session:
+        row = session.get(BoothRound, 1)
+        assert row is not None
+        for number in range(36):
+            session.add(
+                BoothEvent(
+                    round_id=1,
+                    tick=row.version if number < 35 else row.version + 1,
+                    kind="news",
+                    headline=f"공지 {number}",
+                    sector=None,
+                    rates={},
+                    created_at=clock.now,
+                )
+            )
+        session.commit()
+    data = client.get("/api/booth/state").json()
+    assert [e["headline"] for e in data["event_history"]] == [
+        f"공지 {number}" for number in reversed(range(35))
+    ]
+    assert len({e["id"] for e in data["event_history"]}) == 35
 
 
 def test_news_tracks_actual_sector_direction_and_rotates_templates() -> None:

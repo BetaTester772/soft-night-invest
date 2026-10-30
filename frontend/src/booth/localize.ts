@@ -1,8 +1,12 @@
 import { t } from '../i18n';
-import type { BoothState } from './types';
+import type { BoothState, MarketEvent } from './types';
 
 /** Translate known system content while keeping participant and operator input intact. */
 export function localizeBoothState(data: BoothState): BoothState {
+  const event = (e: MarketEvent) => ({
+    ...e,
+    headline: ['ghost', 'meteor', 'cancelled', 'market'].includes(e.kind) ? t(e.headline) : e.headline,
+  });
   const round = (r: BoothState['round']) => ({
     ...r,
     era: t(r.era),
@@ -20,10 +24,8 @@ export function localizeBoothState(data: BoothState): BoothState {
       description: t(f.description),
       reason: t(f.reason),
     })),
-    events: data.events.map((e) => ({
-      ...e,
-      headline: ['ghost', 'meteor', 'cancelled', 'market'].includes(e.kind) ? t(e.headline) : e.headline,
-    })),
+    events: data.events.map(event),
+    event_history: data.event_history?.map(event),
     me: data.me ? {
       ...data.me,
       holdings: data.me.holdings.map((h) => ({ ...h, name: t(h.name) })),
