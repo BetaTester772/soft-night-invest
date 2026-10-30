@@ -62,10 +62,15 @@ export function AdminView({ config }: { config: BoothConfig }) {
         }
         payload = { ...(body as object), request_id: grantRequest.current.id };
       }
-      const result = await boothApi.admin<{ message?: string }>(
+      const result = await boothApi.admin<{ message?: string; round_id?: number }>(
         name,
         payload,
       );
+      if (name === "qa/next" && result?.round_id) {
+        setRoundId(result.round_id);
+        setParticipant("");
+        grantRequest.current = null;
+      }
       if (name === "grant") {
         grantRequest.current = null;
         setGrantAmount("");
@@ -210,19 +215,30 @@ export function AdminView({ config }: { config: BoothConfig }) {
             {t("재개하면 지난 구간은 건너뛰고 마지막 공개 가격부터 이어갑니다. 마감 시각은 바뀌지 않습니다.")}
           </p>
           {config.qa_tools && (
-            <div className={styles.actions}>
-              <Button
-                disabled={busy}
-                onClick={() =>
-                  void action("qa/step", {
-                    seconds: selected?.update_interval_seconds ?? 30,
-                  })
-                }
-              >
-                {t("QA {seconds}초 진행", { seconds: selected?.update_interval_seconds ?? 30 })}
-              </Button>
-              <Button disabled={busy} onClick={() => void action("qa/next")}>{t("QA 다음 장 개장")}</Button>
-            </div>
+            <>
+              <p className={styles.muted}>{t("QA는 1→2→3→1장으로 순환합니다. 다시 시작하면 테스트 거래·잔액·지급·시상 기록을 초기화하고 로그인은 유지합니다.")}</p>
+              <div className={styles.actions}>
+                <Button
+                  disabled={busy}
+                  onClick={() =>
+                    void action("qa/step", {
+                      seconds: selected?.update_interval_seconds ?? 30,
+                    })
+                  }
+                >
+                  {t("QA {seconds}초 진행", { seconds: selected?.update_interval_seconds ?? 30 })}
+                </Button>
+                <Button
+                  variant="danger"
+                  disabled={busy || !selected || !["open", "paused"].includes(selected.state)}
+                  onClick={() => void action("qa/close", { round_id: roundId })}
+                >
+                  {t("QA 지금 장 마감")}
+                </Button>
+                <Button disabled={busy} onClick={() => void action("qa/next")}>{t("QA 다음 장 개장")}</Button>
+              </div>
+              <p className={styles.muted}>{t("지금 장 마감은 선택한 장을 마지막 공개 가격으로 종료하고 시상 결과를 만듭니다. 다음 장은 자동으로 열리지 않습니다.")}</p>
+            </>
           )}
         </section>
         <section className={styles.panel + " " + styles.adminSection}>

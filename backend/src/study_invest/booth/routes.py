@@ -21,7 +21,7 @@ from ..clock import OffsetClock
 from ..models import Participant
 from ..services import auth
 from ..services.common import DomainError, audit, batch_lock
-from . import accounts, market, schemas, views
+from . import accounts, market, qa, schemas, views
 from .domain import SECTORS
 from .models import BoothAccount, BoothParticipant, BoothResult, BoothRound
 from .views import latest_result
@@ -331,21 +331,65 @@ def qa_step(body: schemas.Step, state: StateDep) -> dict[str, Any]:
     return {"now": views.iso(clock()), "results": results}
 
 
+@admin.post("/qa/close")
+def qa_close(body: schemas.Enroll, state: StateDep, s: BatchSessionDep) -> dict[str, Any]:
+    clock = qa_clock(state)
+    batch_lock(s)
+    row = accounts.lock_round(s, body.round_id)
+    if row.state not in ("open", "paused", "closed"):
+        raise DomainError("INVALID_STATE", "열린 장이나 일시정지된 장만 마감할 수 있습니다.")
+    if row.state != "closed":
+        now = clock()
+        previous_closes_at = row.closes_at
+        row.closes_at = min(now, row.closes_at)
+        market.freeze(s, row, now)
+        audit(
+            s,
+            now,
+            "admin",
+            "booth.qa.close",
+            round_id=row.number,
+            previous_closes_at=previous_closes_at.isoformat(),
+            closes_at=row.closes_at.isoformat(),
+        )
+    s.commit()
+    return {"round_id": row.number, "message": "장을 마감했습니다. 시상 결과를 확인하세요."}
+
+
 @admin.post("/qa/next")
 def qa_next(state: StateDep) -> dict[str, Any]:
     clock = qa_clock(state)
-    now = clock()
     with state.batch_session_factory() as s:
-        rows = accounts.ensure_rounds(s, state.settings.booth_date)
+        batch_lock(s)
+        rows = [
+            accounts.lock_round(s, row.number)
+            for row in accounts.ensure_rounds(s, state.settings.booth_date)
+        ]
+        now = clock()
         upcoming = min(
-            (r.opens_at for r in rows if r.state == "pending" and r.opens_at > now), default=None
+            (r for r in rows if r.state == "pending" and r.opens_at >= now),
+            key=lambda r: r.opens_at,
+            default=None,
         )
+        restarted = upcoming is None
+        if upcoming is None:
+            qa.restart_cycle(s, rows, state.settings.booth_date, now)
+            upcoming = rows[0]
+        target = upcoming.opens_at
+        results = []
+        for row in rows:
+            before = row.state, row.version
+            market.advance(s, row, target)
+            if before != (row.state, row.version):
+                results.append({"round_id": row.number, "state": row.state, "version": row.version})
         s.commit()
-    if upcoming is None:
-        raise DomainError("NO_NEXT_ROUND", "다음 장이 없습니다.")
-    clock.jump_to(upcoming)
-    results = market.run_due(state.batch_session_factory, clock(), state.settings.booth_date)
-    return {"now": views.iso(clock()), "results": results}
+        clock.jump_to(target)
+        return {
+            "now": views.iso(clock()),
+            "round_id": upcoming.number,
+            "restarted": restarted,
+            "results": results,
+        }
 
 
 @admin.post("/qa/cash")

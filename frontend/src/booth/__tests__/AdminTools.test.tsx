@@ -15,7 +15,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function setup(state = "pending", failFirstGrant = false) {
+function setup(state = "pending", failFirstGrant = false, qaTools = false) {
   const data = boothState();
   data.round.state = state;
   const status = {
@@ -35,7 +35,7 @@ function setup(state = "pending", failFirstGrant = false) {
   });
   vi.stubGlobal("fetch", fetch);
   adminKeyStore.set("test-admin-key");
-  render(<AdminView config={config} />);
+  render(<AdminView config={{ ...config, qa_tools: qaTools }} />);
   return { fetch, user: userEvent.setup() };
 }
 
@@ -139,4 +139,52 @@ it("generates a stable grant ID without randomUUID when retrying", async () => {
   expect(first.request_id).toBe("11".repeat(16));
   expect(retry.request_id).toBe(first.request_id);
   expect(getRandomValues).toHaveBeenCalledTimes(1);
+});
+
+it("selects the newly opened QA round and clears the previous participant", async () => {
+  const data = boothState();
+  vi.stubGlobal("fetch", vi.fn(async (url: string | URL | Request) => {
+    if (String(url).endsWith("/qa/next")) {
+      return new Response(JSON.stringify({ round_id: 2, results: [] }));
+    }
+    return new Response(JSON.stringify({
+      rounds: data.rounds,
+      participants: [
+        { participant_id: 1, nickname: "김공룡", round_id: 1, cash: 1000000, disqualified: false, reason: null },
+        { participant_id: 1, nickname: "김공룡", round_id: 2, cash: 1000000, disqualified: false, reason: null },
+      ],
+      results: [],
+    }));
+  }));
+  adminKeyStore.set("test-admin-key");
+  render(<AdminView config={{ ...config, qa_tools: true }} />);
+  const user = userEvent.setup();
+  await screen.findByRole("option", { name: "김공룡" });
+  await user.selectOptions(screen.getByLabelText("참가자"), "1");
+  await user.click(screen.getByRole("button", { name: "QA 다음 장 개장" }));
+  await waitFor(() => expect(screen.getByLabelText("운영할 장")).toHaveValue("2"));
+  expect(screen.getByLabelText("참가자")).toHaveValue("");
+});
+
+
+it.each(["open", "paused"])("closes the selected %s round using the QA button", async (state) => {
+  const { fetch, user } = setup(state, false, true);
+  const button = await screen.findByRole("button", { name: "QA 지금 장 마감" });
+  await waitFor(() => expect(button).toBeEnabled());
+  await user.click(button);
+  await waitFor(() => expect(fetch.mock.calls.some(([url]) => String(url).endsWith("/qa/close"))).toBe(true));
+  const call = fetch.mock.calls.find(([url]) => String(url).endsWith("/qa/close"))!;
+  expect(JSON.parse((call[1] as RequestInit).body as string)).toEqual({ round_id: 1 });
+});
+
+it.each(["pending", "closed"])("disables QA close for a %s round", async (state) => {
+  setup(state, false, true);
+  await screen.findByRole("option", { name: "김공룡" });
+  expect(screen.getByRole("button", { name: "QA 지금 장 마감" })).toBeDisabled();
+});
+
+it("hides QA close on a normal server", async () => {
+  setup("open");
+  await screen.findByRole("button", { name: "지금 개장" });
+  expect(screen.queryByRole("button", { name: "QA 지금 장 마감" })).not.toBeInTheDocument();
 });
