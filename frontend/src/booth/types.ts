@@ -124,6 +124,7 @@ export interface BoothState {
   instruments: Instrument[];
   funds: Fund[];
   events: MarketEvent[];
+  event_history?: MarketEvent[];
   ranking: RankEntry[];
   result: Result | null;
   results: Result[];

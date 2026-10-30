@@ -1,36 +1,69 @@
 import { t, useLanguage } from "../i18n";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button, LineChart } from "../components/ui";
 import { pct, time, tone, won } from "./format";
 import type { BoothState, TradeTarget } from "./types";
 import styles from "./Booth.module.css";
 
 export function NewsFeed({ data }: { data: BoothState }) {
+  return <RoundNewsFeed key={data.round.id} data={data} />;
+}
+
+function RoundNewsFeed({ data }: { data: BoothState }) {
   useLanguage();
+  const [expanded, setExpanded] = useState(false);
+  const listId = useId();
+  const events = data.event_history ?? data.events;
+  const visible = expanded ? events : events.slice(0, 3);
   return (
     <section className={styles.panel}>
       <div className={styles.panelHead}>
         <h2>{t("공룡 속보")}</h2>
+        <small className={styles.muted}>
+          {t("이번 장 {count}건", { count: events.length })}
+        </small>
       </div>
-      <div className={styles.news}>
-        {data.events.length ? (
-          data.events.map((e) => (
+      <div
+        key={String(expanded)}
+        id={listId}
+        className={styles.news}
+        role="region"
+        aria-label={t("공룡 속보 기록")}
+        tabIndex={events.length ? 0 : undefined}
+      >
+        {visible.length ? (
+          visible.map((e, index) => (
             <article key={e.id}>
-              <small>
-                {time(e.created_at)} ·{" "}
+              <small className={styles.newsMeta}>
+                <time dateTime={e.created_at}>{time(e.created_at)}</time> ·{" "}
                 {e.kind === "meteor"
                   ? t("운석 속보")
                   : e.kind === "ghost"
                     ? t("공룡 귀신")
                     : t("시장 소식")}
+                {index === 0 && <span className={styles.newsLatest}>{t("최신")}</span>}
               </small>
               <p>{e.headline}</p>
             </article>
           ))
         ) : (
-          <p className={styles.muted}>{t("이번 가격 변동에 해당하는 속보가 없습니다.")}</p>
+          <p className={styles.muted}>{t("아직 기록된 속보가 없습니다.")}</p>
         )}
       </div>
+      {events.length > 3 && (
+        <button
+          type="button"
+          className={styles.newsToggle}
+          aria-expanded={expanded}
+          aria-controls={listId}
+          onClick={() => setExpanded(!expanded)}
+        >
+          {expanded
+            ? t("최근 속보만 보기")
+            : t("이전 속보 {count}건 더 보기", { count: events.length - 3 })}
+          <span aria-hidden="true">{expanded ? "−" : "+"}</span>
+        </button>
+      )}
     </section>
   );
 }

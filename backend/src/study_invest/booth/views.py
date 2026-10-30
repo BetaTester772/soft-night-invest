@@ -28,6 +28,17 @@ def iso(at: datetime | None) -> str | None:
     return at.astimezone(KST).isoformat() if at else None
 
 
+def event_view(event: BoothEvent) -> dict[str, Any]:
+    return {
+        "id": event.id,
+        "kind": event.kind,
+        "headline": event.headline,
+        "sector": event.sector,
+        "rates": event.rates,
+        "created_at": iso(event.created_at),
+    }
+
+
 def round_view(row: BoothRound, now: datetime) -> dict[str, Any]:
     try:
         assert_open(row, now)
@@ -320,10 +331,9 @@ def snapshot(
     result = latest.get(row.number)
     events = s.scalars(
         select(BoothEvent)
-        .where(BoothEvent.round_id == row.number, BoothEvent.tick == row.version)
+        .where(BoothEvent.round_id == row.number, BoothEvent.tick <= row.version)
         .order_by(BoothEvent.id.desc())
-        .limit(30)
-    )
+    ).all()
     return {
         "now": iso(now),
         "rounds": [round_view(r, now) for r in rows],
@@ -331,17 +341,8 @@ def snapshot(
         "round": round_view(row, now),
         "instruments": instruments,
         "funds": funds,
-        "events": [
-            {
-                "id": e.id,
-                "kind": e.kind,
-                "headline": e.headline,
-                "sector": e.sector,
-                "rates": e.rates,
-                "created_at": iso(e.created_at),
-            }
-            for e in events
-        ],
+        "events": [event_view(e) for e in events if e.tick == row.version][:30],
+        "event_history": [event_view(e) for e in events],
         "ranking": result.entries if result else live_ranking(s, row, assets),
         "result": result_view(result),
         "results": [result_view(found) for r in rows if (found := latest.get(r.number))],
