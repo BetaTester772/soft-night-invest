@@ -1,4 +1,9 @@
 export const english: Record<string, string> = {
+  "QA 지금 장 마감": "QA close round now",
+  "지금 장 마감은 선택한 장을 마지막 공개 가격으로 종료하고 시상 결과를 만듭니다. 다음 장은 자동으로 열리지 않습니다.": "Close the selected round at the last published prices and generate award results. The next round does not open automatically.",
+  "장을 마감했습니다. 시상 결과를 확인하세요.": "Round closed. Review the award results.",
+  "열린 장이나 일시정지된 장만 마감할 수 있습니다.": "Only open or paused rounds can be closed.",
+  "QA는 1→2→3→1장으로 순환합니다. 다시 시작하면 테스트 거래·잔액·지급·시상 기록을 초기화하고 로그인은 유지합니다.": "QA cycles through rounds 1 → 2 → 3 → 1. Restarting clears test trades, balances, grants and results while keeping participants signed in.",
   "지급 금액 (원)": "Grant amount (KRW)",
   "지금 개장": "Open now",
   "지금 개장하면 선택한 장을 현재 시각부터 50분간 엽니다. 다른 장과 시간이 겹치면 열 수 없습니다.": "Open the selected round for 50 minutes starting now. It cannot overlap another round.",
