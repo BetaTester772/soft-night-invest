@@ -4,7 +4,7 @@ import { Button, Modal, TextField } from "../components/ui";
 import { boothApi } from "./api";
 import { boothTokenStore } from "../api/storage";
 import { formatNumber } from "../lib/format";
-import { parseUnits, units, won } from "./format";
+import { averagePrice, parseUnits, units, won } from "./format";
 import type { BoothState, OrderBody, TradeTarget } from "./types";
 import styles from "./Booth.module.css";
 
@@ -45,10 +45,12 @@ export function TradeDialog({
     stock && stock.price > 0
       ? Math.min(1_000_000_000, Math.floor((data.me?.cash ?? 0) / stock.price))
       : 0;
-  const held =
-    target.kind === "stock"
-      ? (data.me?.holdings.find((h) => h.code === target.code)?.quantity ?? 0)
-      : (data.me?.funds.find((h) => h.code === target.code)?.units ?? 0);
+  const stockHolding = data.me?.holdings.find((h) => h.code === target.code);
+  const fundHolding = data.me?.funds.find((h) => h.code === target.code);
+  const held = target.kind === "stock"
+    ? (stockHolding?.quantity ?? 0) : (fundHolding?.units ?? 0);
+  const cost = target.kind === "stock"
+    ? (stockHolding?.cost ?? 0) : (fundHolding?.cost ?? 0);
   const name = stock?.name ?? fund?.name ?? target.code;
   const closed =
     !data.round.is_open ||
@@ -162,11 +164,16 @@ export function TradeDialog({
             {target.kind === "fund" ? t("환매") : t("매도")}
           </button>
         </div>
-        <p className={styles.muted}>
-          {target.kind === "fund"
-            ? t("기준가 ") + won(fund?.nav ?? 0)
-            : t("현재가 ") + won(stock?.price ?? 0)}
-        </p>
+        <dl className={styles.priceSummary}>
+          <div className={styles.averagePrice}>
+            <dt>{t("평단가")}</dt>
+            <dd>{averagePrice(cost, held, target.kind === "fund" ? 1_000_000 : 1)}</dd>
+          </div>
+          <div>
+            <dt>{target.kind === "fund" ? t("기준가") : t("현재가")}</dt>
+            <dd>{won(target.kind === "fund" ? fund?.nav ?? 0 : stock?.price ?? 0)}</dd>
+          </div>
+        </dl>
         <TextField
           label={label}
           hint={

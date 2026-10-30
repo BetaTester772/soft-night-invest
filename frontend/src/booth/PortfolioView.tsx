@@ -1,7 +1,7 @@
 import { t, useLanguage } from "../i18n";
 import { Link } from "react-router-dom";
 import { Button } from "../components/ui";
-import { pct, time, tone, units, won } from "./format";
+import { averagePrice, pct, time, tone, units, won } from "./format";
 import type { BoothState, TradeTarget } from "./types";
 import styles from "./Booth.module.css";
 
@@ -67,85 +67,33 @@ export function PortfolioView({
           </div>
         </div>
         <h3>{t("직접 매매")}</h3>
-        <div className={styles.tableScroll}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>{t("종목")}</th>
-                <th>{t("보유")}</th>
-                <th>{t("평가액")}</th>
-                <th>{t("거래")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {me.holdings.map((h) => (
-                <tr key={h.code}>
-                  <td>{h.name}</td>
-                  <td>{h.quantity}{t("주")}</td>
-                  <td>{won(h.value)}</td>
-                  <td>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={!data.round.is_open || me.disqualified}
-                      onClick={() =>
-                        onTrade({
-                          kind: "stock",
-                          code: h.code,
-                          round_id: data.round.id,
-                          side: "sell",
-                        })
-                      }
-                    >
-                      {t("매도")}
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className={styles.holdings}>
+          {me.holdings.map((h) => (
+            <HoldingCard key={h.code} name={h.name}
+              average={averagePrice(h.cost, h.quantity)}
+              priceLabel={t("현재가")} price={won(h.price)}
+              quantityLabel={t("보유")} quantity={h.quantity + t("주")}
+              value={won(h.value)} action={t("매도")}
+              disabled={!data.round.is_open || me.disqualified}
+              onTrade={() => onTrade({ kind: "stock", code: h.code, round_id: data.round.id, side: "sell" })}
+            />
+          ))}
         </div>
         {!me.holdings.length && (
           <p className={styles.muted}>{t("보유한 주식이 없습니다.")}</p>
         )}
         <h3 style={{ marginTop: 25 }}>{t("에이전트 펀드")}</h3>
-        <div className={styles.tableScroll}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>{t("펀드")}</th>
-                <th>{t("보유 좌수")}</th>
-                <th>{t("평가액")}</th>
-                <th>{t("거래")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {me.funds.map((h) => (
-                <tr key={h.code}>
-                  <td>{h.name}</td>
-                  <td>{units(h.units)}{t("좌")}</td>
-                  <td>{won(h.value)}</td>
-                  <td>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={!data.round.is_open || me.disqualified}
-                      onClick={() =>
-                        onTrade({
-                          kind: "fund",
-                          code: h.code,
-                          round_id: data.round.id,
-                          side: "sell",
-                        })
-                      }
-                    >
-                      {t("환매")}
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className={styles.holdings}>
+          {me.funds.map((h) => (
+            <HoldingCard key={h.code} name={h.name}
+              average={averagePrice(h.cost, h.units, 1_000_000)}
+              priceLabel={t("기준가")} price={won(h.nav)}
+              quantityLabel={t("보유 좌수")} quantity={units(h.units) + t("좌")}
+              value={won(h.value)} action={t("환매")}
+              disabled={!data.round.is_open || me.disqualified}
+              onTrade={() => onTrade({ kind: "fund", code: h.code, round_id: data.round.id, side: "sell" })}
+            />
+          ))}
         </div>
         {!me.funds.length && (
           <p className={styles.muted}>{t("보유한 펀드가 없습니다.")}</p>
@@ -197,5 +145,29 @@ export function PortfolioView({
         <p>{t("장 마감 시 공개 가격으로 최종 평가합니다. 다음 장에는 가상 시드 100만원으로 다시 시작하고, 지난 결과는 장별 랭킹에 남습니다.")}</p>
       </div>
     </>
+  );
+}
+
+function HoldingCard({ name, average, priceLabel, price, quantityLabel, quantity,
+  value, action, disabled, onTrade }: {
+  name: string; average: string; priceLabel: string; price: string;
+  quantityLabel: string; quantity: string; value: string; action: string;
+  disabled: boolean; onTrade: () => void;
+}) {
+  return (
+    <article className={styles.holdingCard}>
+      <div className={styles.holdingHeader}>
+        <h4>{name}</h4>
+        <Button size="sm" variant="secondary" disabled={disabled} onClick={onTrade}>
+          {action}
+        </Button>
+      </div>
+      <dl className={styles.holdingMetrics}>
+        <div className={styles.averagePrice}><dt>{t("평단가")}</dt><dd>{average}</dd></div>
+        <div><dt>{priceLabel}</dt><dd>{price}</dd></div>
+        <div><dt>{quantityLabel}</dt><dd>{quantity}</dd></div>
+        <div><dt>{t("평가액")}</dt><dd>{value}</dd></div>
+      </dl>
+    </article>
   );
 }

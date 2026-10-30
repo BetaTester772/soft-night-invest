@@ -49,8 +49,11 @@ export function BroadcastView({
             <h2>{i.name}</h2>
             <div>
               <strong>{won(i.price)}</strong>
-              <span className={styles[tone(i.return_rate)]}>
-                {pct(i.return_rate)}
+              <span
+                className={styles[tone(i.change_rate)]}
+                title={t("직전 공시 가격 대비")}
+              >
+                {pct(i.change_rate)}
               </span>
             </div>
             <LineChart
